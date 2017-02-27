@@ -1,40 +1,66 @@
 ---
-title: "Grid Search"
+title: "Hyper-parameter Tuning with Grid Search for Deep Learning"
 author: "Shirin Glander"
 date: "February 21, 2017"
 output: html_document
 ---
 
-### Hyper-parameter Tuning with Grid Search
+- link to last week's post
 
-```{r}
-arrhythmia <- read.table("arrhythmia.data.txt", sep = ",")
+---
 
-arrhythmia[-280] <- lapply(arrhythmia[-280], as.numeric)
+Last week I showed how to build a deep neural network with h2o and rsparkling. As we could see there, it is not trivial to optimize the hyper-parameters for modeling. Hyper-parameter tuning with grid search allows us to test different combinations of hyper-parameters and find one with improved accuracy.
 
-colnames(arrhythmia)[280] <- "class"
-arrhythmia$class <- as.factor(arrhythmia$class)
+Keep in mind though, that hyperparameter tuning can only improve the model so much without overfitting. If you can't achieve sufficient accuracy, the input features might simply not be adequate for the predictions you are trying to model. It might be necessary to go back to the original features and try e.g. feature engineering methods.
+
+<br>
+
+### Preparing Spark instance and plotting theme
+
+Check out last week's post for details.
+
+```{r message=FALSE, warning=FALSE, tidy=FALSE}
+library(rsparkling)
+options(rsparkling.sparklingwater.version = "2.0.3")
+
+library(h2o)
+library(dplyr)
+library(sparklyr)
+
+sc <- spark_connect(master = "local", version = "2.0.0")
 ```
 
-```{r}
-arrhythmia$class <- ifelse(arrhythmia$class == 1, "normal", "arrhythmia")
+```{r message=FALSE, warning=FALSE, tidy=FALSE}
+library(ggplot2)
+library(ggrepel)
 
-library(matrixStats)
-
-colvars <- data.frame(feature = colnames(arrhythmia[-280]),
-                      variance = colVars(as.matrix(arrhythmia[-280])))
-
-arrhythmia_subset <- cbind(arrhythmia[, c(280, which(colvars$variance > 50))])
+my_theme <- function(base_size = 12, base_family = "sans"){
+  theme_minimal(base_size = base_size, base_family = base_family) +
+  theme(
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    panel.grid.major = element_line(color = "grey"),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "aliceblue"),
+    strip.background = element_rect(fill = "darkgrey", color = "grey", size = 1),
+    strip.text = element_text(face = "bold", size = 12, color = "white"),
+    legend.position = "right",
+    legend.justification = "top", 
+    panel.border = element_rect(color = "grey", fill = NA, size = 0.5)
+  )
+}
 ```
 
-```{r}
-arrhythmia_sc <- copy_to(sc, arrhythmia_subset, overwrite = TRUE)
+```{r echo=FALSE}
+load("arrhythmia_subset.RData")
+```
+
+```{r tidy=FALSE}
+arrhythmia_sc <- copy_to(sc, arrhythmia_subset)
 arrhythmia_hf <- as_h2o_frame(sc, arrhythmia_sc, strict_version_check = FALSE)
 ```
 
-```{r}
-arrhythmia_hf[, 1] <- h2o.asfactor(arrhythmia_hf[, 1])
-
+```{r tidy=FALSE}
 splits <- h2o.splitFrame(arrhythmia_hf, 
                          ratios = c(0.7, 0.15), 
                          seed = 1)
@@ -43,33 +69,122 @@ train <- splits[[1]]
 valid <- splits[[2]]
 test <- splits[[3]]
 
-response <- "class"
-features <- setdiff(colnames(train), c(response, weights))
+response <- "diagnosis"
+weights <- "weights"
+features <- setdiff(colnames(train), c(response, weights, "class"))
 ```
 
-Since there are a lot of parameters that can impact model accuracy, hyper-parameter tuning is especially important for Deep Learning:
+<br>
 
-As an alternative to manual tuning, or “hand tuning”, we can use the h2o.grid() function to perform either a Cartesian or Random Grid Search (RGS). Random Grid Search is usually a quicker way to find a good model. The simplest hyperparameter search method is a brute-force scan of the full Cartesian product of all combinations specified by a grid search:
+### Grid Search
 
-One handy feature of RGS is that you can specify how long you would like to execute the grid for – this can be based on a time, number of models, or a performance-metric-based stopping criterion.
+We can use the *h2o.grid()* function to perform e.g. Random Grid Search (RGS). We could also test all possible combinations of parameters with Cartesian Grid Search, but RGS is much faster and usually finds sufficiently accurate models.
 
-First define a grid of Deep Learning hyperparameters and specify the search_criteria. Once we have trained the grid, we can collect the results and sort by our model performance metric of choice.
+For RGS we first define a set of hyper-parameters and search criteria, the grid. We can also specify how long we want to run the grid search for. Based on the results of each model tested in the grid, we can choose the one with the highest accuracy or best performance for the question on hand.
 
-In regression analysis, the term mean squared error is sometimes used to refer to the unbiased estimate of error variance: the residual sum of squares divided by the number of degrees of freedom. This definition for a known, computed quantity differs from the above definition for the computed MSE of a predictor in that a different denominator is used. The denominator is the sample size reduced by the number of model parameters estimated from the same data, (n-p) for p regressors or (n-p-1) if an intercept is used.[3] For more details, see errors and residuals in statistics. Note that, although the MSE (as defined in the present article) is not an unbiased estimator of the error variance, it is consistent, given the consistency of the predictor.
+#### Activation Functions
+- **Rectifier**: is the default activation function. It is the fastest and most versatile option. It can lead to instabilities though and tends to be lower in accuracy.
+- **Tanh**: ia a scaled and shifted variant of the sigmoid activation function. It can take on values from -1 to 1 and centers around 0. Tanh needs more computational power than e.g. the Rectifier function.
+- **Maxout**: is computationally quite demanding but can produce high accuracy models.
 
-Also in regression analysis, "mean squared error", often referred to as mean squared prediction error or "out-of-sample mean squared error", can refer to the mean value of the squared deviations of the predictions from the true values, over an out-of-sample test space, generated by a model estimated over a particular sample space. This also is a known, computed quantity, and it varies by sample and by out-of-sample test space.
+- **...WithDropout**: works together with the parameter *hidden_dropout_ratios* (ontrols the amount of layer neurons that are randomly dropped for each hidden layer). Hidden dropout ratios are useful for preventing overfitting on learned features.
+
+#### L1 and L2 penalties
+- **L1**: lets only strong weights survive
+- **L2**: prevents any single weight from getting too big. 
 
 ```{r}
-activation_opt <- c("Rectifier", "Maxout", "Tanh", "Sigmoid")
-l1_opt <- c(0, 0.00001, 0.0001, 0.001, 0.01)
-l2_opt <- c(0, 0.00001, 0.0001, 0.001, 0.01)
+hyper_params <- list(activation = c("Rectifier", "Maxout", "Tanh"), 
+                     l1 = c(0, 0.00001, 0.0001, 0.001, 0.01), 
+                     l2 = c(0, 0.00001, 0.0001, 0.001, 0.01))
 
-hyper_params <- list(activation = activation_opt, 
-                     l1 = l1_opt, 
-                     l2 = l2_opt)
-
-search_criteria <- list(strategy = "RandomDiscrete", max_runtime_secs = 60) # train grid for 60 seconds
+hyper_params <- list(activation = c("RectifierWithDropout", "MaxoutWithDropout", "TanhWithDropout"), 
+                     l1 = c(0, 0.00001, 0.0001, 0.001, 0.01), 
+                     l2 = c(0, 0.00001, 0.0001, 0.001, 0.01),
+                     hidden_dropout_ratios = c())
 ```
+
+#### Early stopping criteria
+- **stopping_metric**: metric that we want to use as stopping criterion
+- **stopping_tolerance** and **stopping_rounds**: trainig stops when the the stopping metric does not improve by the stopping tolerance proportion any more (e.g. by 0.05 or 5%) for the number of consecutive rounds defined by stopping rounds.
+
+```{r}
+search_criteria <- list(strategy = "RandomDiscrete", 
+                        max_models = 100,
+                        max_runtime_secs = 300)
+
+#search_criteria <- list(strategy = "RandomDiscrete", 
+ #                       stopping_metric = "AUTO", 
+  #                      stopping_tolerance = 0.001, 
+   #                     stopping_rounds = 10)
+```
+
+```{r}
+dl_grid <- h2o.grid(algorithm = "deeplearning", 
+                    x = features,
+                    y = response,
+                    weights_column = weights,
+                    model_id = "dl_grid",
+                    training_frame = train,
+                    validation_frame = valid,
+                    nfolds = 15,                                   # 10x cross validation
+                    keep_cross_validation_fold_assignment = TRUE,
+                    score_each_iteration = TRUE,
+                    hidden = c(200, 200, 200, 200, 200),           # 5 hidden layers, each of 200 neurons
+                    epochs = 100,
+                    variable_importances = TRUE,
+                    export_weights_and_biases = TRUE,
+                    seed = 42,
+                    hyper_params = hyper_params,
+                    search_criteria = search_criteria)
+```
+
+```{r echo=TRUE, eval=FALSE}
+h2o.saveModel(dl_grid, path = "dl_grid", force = TRUE)
+```
+
+```{r}
+dl_grid <- h2o.loadModel("/Users/Shirin/Documents/Github/blog_posts_prep/wip/nn/dl_grid/dl_grid")
+```
+
+```{r}
+grid <- h2o.getGrid(grid_id = "dl_grid",
+                    sort_by = "accuracy",
+                    decreasing = TRUE)
+```
+
+```{r}
+model_ids <- grid@model_ids
+best_model <- h2o.getModel(model_ids[[1]])
+```
+
+```{r }
+h2o.mean_per_class_error(best_model, train = TRUE, valid = TRUE, xval = TRUE)
+```
+
+Now let’s evaluate the model performance on a test set so we get an honest estimate of top model performance.
+
+```{r}
+perf <- h2o.performance(best_model, test)
+plot(perf)
+h2o.mse(perf)
+h2o.auc(perf)
+h2o.confusionMatrix(best_model, test)
+```
+
+
+
+####Training Samples per MapReduce Iteration
+The parameter `train_samples_per_iteration` matters especially in multi-node operation. It controls the number of rows trained on for each MapReduce iteration. Depending on the value selected, one MapReduce pass can sample observations, and multiple such passes are needed to train for one epoch. All H2O compute nodes then communicate to agree on the best model coefficients (weights/biases) so far, and the model may then be scored (controlled by other parameters below). The default value of `-2` indicates auto-tuning, which attemps to keep the communication overhead at 5% of the total runtime. The parameter `target_ratio_comm_to_comp` controls this ratio. This parameter is explained in more detail in the [H2O Deep Learning booklet](http://h2o.ai/resources/),
+
+
+####Loss functions, Distributions, Offsets, Observation Weights
+H2O Deep Learning supports advanced statistical features such as multiple loss functions, non-Gaussian distributions, per-row offsets and observation weights.
+In addition to `Gaussian` distributions and `Squared` loss, H2O Deep Learning supports `Poisson`, `Gamma`, `Tweedie` and `Laplace` distributions. It also supports `Absolute` and `Huber` loss and per-row offsets specified via an `offset_column`. Observation weights are supported via a user-specified `weights_column`.
+
+
+`rho` and `epsilon`, which balance the global and local search efficiencies. `rho` is the similarity to prior weight updates (similar to momentum), and `epsilon` is a parameter that prevents the optimization to get stuck in local optima. Defaults are `rho=0.99` and `epsilon=1e-8`. For cases where convergence speed is very important, it might make sense to perform a few runs to optimize these two parameters (e.g., with `rho in c(0.9,0.95,0.99,0.999)` and `epsilon in c(1e-10,1e-8,1e-6,1e-4)`). Of course, as always with grid searches, caution has to be applied when extrapolating grid search results to a different parameter regime (e.g., for more epochs or different layer topologies or activation functions, etc.).
+
 
 In the context of artificial neural networks, the rectifier is an activation function defined as
 
@@ -126,41 +241,8 @@ continuity of the function
 computational power to process all neurons of the network
 type of the desired output (logistic/continuous variables or classification/categorical data)
 
-```{r}
-dl_grid <- h2o.grid("deeplearning", 
-                    x = features,
-                    y = response,
-                    grid_id = "dl_grid",
-                    training_frame = train,
-                    validation_frame = valid,
-                    seed = 1234,
-                    hidden = c(200, 200, 200, 200),
-                    nfolds = 10,
-                    hyper_params = hyper_params,
-                    search_criteria = search_criteria)
-```
 
-```{r}
-dl_gridperf <- h2o.getGrid(grid_id = "dl_grid",
-                           sort_by = "accuracy",
-                           decreasing = TRUE)
 
-print(dl_gridperf)
-```
-
-Grab the model_id for the top DL model, chosen by validation error.
-
-```{r}
-best_dl_model_id <- dl_gridperf@model_ids[[1]]
-best_dl <- h2o.getModel(best_dl_model_id)
-```
-
-Now let’s evaluate the model performance on a test set so we get an honest estimate of top model performance.
-
-```{r}
-best_dl_perf <- h2o.performance(model = best_dl, newdata = test)
-h2o.mse(best_dl_perf)
-```
 
 Let's see which model had the lowest validation error:
 
@@ -205,7 +287,7 @@ for (i in 1:10) {
                               ### Random parameters
                               activation = rand_activation,
                               hidden = rand_hidden,
-                              l1  =rand_l1,
+                              l1 = rand_l1,
                               l2 = rand_l2,
                               input_dropout_ratio = rand_input_dropout,
                               hidden_dropout_ratios = rand_dropout)
@@ -263,33 +345,3 @@ summary(m_cont)
 plot(m_cont)
 ```
 
-```{r}
-# Grid Search
-
-# GBM hyperparamters
-gbm_params1 <- list(learn_rate = c(0.01, 0.1),
-                    max_depth = c(3, 5, 9),
-                    sample_rate = c(0.8, 1.0),
-                    col_sample_rate = c(0.2, 0.5, 1.0))
-
-# Train and validate a grid of GBMs
-gbm_grid1 <- h2o.grid("gbm", 
-                      x = features, 
-                      y = response,
-                      grid_id = "gbm_grid1",
-                      training_frame = splits[[1]],
-                      validation_frame = splits[[2]],
-                      ntrees = 100,
-                      seed = 1,
-                      hyper_params = gbm_params1)
-
-# Get the grid results, sorted by validation MSE
-gbm_gridperf1 <- h2o.getGrid(grid_id = "gbm_grid1", 
-                             sort_by = "mse", 
-                             decreasing = FALSE)
-
-print(gbm_gridperf1)
-```
-
-
-This model is fully functional and can be inspected, restarted, or used to score a dataset, etc. Note that binary compatibility between H2O versions is currently not guaranteed.
