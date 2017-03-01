@@ -45,6 +45,11 @@ library(sparklyr)
 sc <- spark_connect(master = "local", version = "2.0.0")
 ```
 
+```{r}
+h2o_context(sc, strict_version_check = FALSE)
+rsparkling::h2o_flow(sc, strict_version_check = FALSE)
+```
+
 I am also preparing my custom plotting theme.
 
 ```{r message=FALSE, warning=FALSE, tidy=FALSE}

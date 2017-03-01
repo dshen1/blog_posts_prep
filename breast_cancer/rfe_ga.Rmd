@@ -406,6 +406,11 @@ feature_imp <- function(model, title) {
   importance_df_1 <- importance$importance
   importance_df_1$group <- rownames(importance_df_1)
   
+  importance_df_1 <- importance_df_1[order(importance_df_1$Overall, decreasing = T), ]
+  importance_df_1 <- importance_df_1[1:5, ]
+  
+  importance_df_1$group <- factor(importance_df_1$group, levels = importance_df_1$group[order(importance_df_1$Overall)])
+  
   importance_df_2 <- importance_df_1
   importance_df_2$Overall <- 0
   
