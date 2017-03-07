@@ -2,14 +2,12 @@
 title: "Hyper-parameter Tuning with Grid Search for Deep Learning"
 author: "Shirin Glander"
 date: "February 21, 2017"
-output: html_document
+output:
+  md_document:
+    variant: markdown_github
 ---
 
-- link to last week's post
-
----
-
-Last week I showed how to build a deep neural network with h2o and rsparkling. As we could see there, it is not trivial to optimize the hyper-parameters for modeling. Hyper-parameter tuning with grid search allows us to test different combinations of hyper-parameters and find one with improved accuracy.
+[Last week I showed how to build a deep neural network with **h2o** and **rsparkling**](https://shiring.github.io/machine_learning/2017/02/27/h2o). As we could see there, it is not trivial to optimize the hyper-parameters for modeling. Hyper-parameter tuning with grid search allows us to test different combinations of hyper-parameters and find one with improved accuracy.
 
 Keep in mind though, that hyperparameter tuning can only improve the model so much without overfitting. If you can't achieve sufficient accuracy, the input features might simply not be adequate for the predictions you are trying to model. It might be necessary to go back to the original features and try e.g. feature engineering methods.
 
@@ -17,7 +15,7 @@ Keep in mind though, that hyperparameter tuning can only improve the model so mu
 
 ### Preparing Spark instance and plotting theme
 
-Check out last week's post for details.
+Check out last week's post for details on how I prepared the data.
 
 ```{r message=FALSE, warning=FALSE, tidy=FALSE}
 library(rsparkling)
@@ -81,75 +79,44 @@ features <- setdiff(colnames(train), c(response, weights, "class"))
 
 ### Grid Search
 
-We can use the *h2o.grid()* function to perform e.g. Random Grid Search (RGS). We could also test all possible combinations of parameters with Cartesian Grid Search, but RGS is much faster and usually finds sufficiently accurate models.
+We can use the *h2o.grid()* function to perform e.g. Random Grid Search (RGS). We could also test all possible combinations of parameters with Cartesian Grid or exhaustive search, but RGS is much faster and usually finds sufficiently accurate models.
 
-For RGS we first define a set of hyper-parameters and search criteria, the grid. We can also specify how long we want to run the grid search for. Based on the results of each model tested in the grid, we can choose the one with the highest accuracy or best performance for the question on hand.
+For RGS we first define a set of hyper-parameters and search criteria. Hyper-parameters are the settings we can specify to fine-tune our models. Because there are many hyper-parameters, each with a range of possible values, we want to find an (ideally) optimal combination to maximize our model's accuracy.
 
----
+We can also specify how long we want to run the grid search for. Based on the results of each model tested in the grid, we can choose the one with the highest accuracy or best performance for the question on hand.
 
-What Are Hyperparameters?
-Nearly all model algorithms used in machine learning have a set of tuning “knobs” which affect how the learning algorithm fits the model to the data. Examples are the regularization settings alpha and lambda for Generalized Linear Modeling or ntrees and max_depth for Gradient Boosted Models. These knobs are called hyperparameters to distinguish them from internal model parameters, such as GLM’s beta coefficients or Deep Learning’s weights, which get learned from the data during the model training process.
-
-What Is Hyperparameter Optimization?
-The set of all combinations of values for these knobs is called the hyperparameter space. We’d like to find a set of hyperparameter values which gives us the best model for our data in a reasonable amount of time. This process is called hyperparameter optimization.
-
-H2O contains good default values for many datasets, but to get the best performance for your data you will want to tune at least some of these hyperparameters to maximize the predictive performance of your models. You should start with the most important hyperparameters for your algorithm of choice, for example ntrees and max_depth for the tree models or the hidden layers for Deep Learning.
-
-H2O provides some guidance by grouping the hyperparameters by their importance in the Flow UI. You should look carefully at the values of the ones marked critical, while the secondary or expert ones are generally used for special cases or fine tuning.
-
-Note that some hyperparameters, such as learning_rate, have a very wide dynamic range. You should choose values that reflect this for your search (e.g., powers of 10 or of 2) to ensure that you cover the most relevant parts of the hyperparameter space. (Bergstra and Bengio p. 290)
-
-Measuring Model Quality
-
-There are many different ways to measure model quality. If you don’t know which to use, H2O will choose a good general-purpose metric for you based on the category of your model (binomial or multinomial classification, regression, clustering, …). However, you may want to choose a metric to compare your models based on your specific goals (e.g., maximizing AUC, minimizing log loss, minimizing false negatives, minimizing mean squared error, …).
-
-Overfitting
-
-Overfitting is the phenomenon of fitting a model so thoroughly to your training data that it begins to memorize the fine details of that specific data, rather than finding general characteristics of that data which will also apply to future data on which you want to make predictions.
-
-Overfitting not only applies to the model training process, but also to the model selection process. During the process of tuning the hyperparameters and selecting the best model you should avoid overfitting them to your training data. Otherwise, the hyperparameter values that you choose will be too highly tuned to your selection data, and will not generalize as well as they could to new data. Note that this is the same principle as, but subtly different from, overfitting during model training. Ideally you should use cross-validation or a validation set during training and then a final holdout test (validation) dataset for model selection. As Bergstra and Bengio write on p. 290,
-
-The standard practice for evaluating a model found by cross-validation is to report [test set error] for the [hyperparameter vector] that minimizes [validation error].
-
-You can read much more on this topic in Chapter 7 of Elements of Statistical Learning from H2O advisors and Stanford professors Trevor Hastie and Rob Tibshirani with Jerome Friedman [2].
-
-Selecting Hyperparameters Manually and With Cartesian Grid
-The traditional method of selecting the values for your hyperparameters has been to individually train a number of models with different combinations of values, and then to compare the model performance to choose the best model. For example, for a tree-based model you might choose ntrees of (50, 100 and 200) and max_depth of (5, 10, 15 and 20) for a total of 3 x 4 = 12 models. This process of trying out hyperparameter sets by hand is called manual search. By looking at the models’ predictive performance, as measured by test-set, cross-validation or validation metrics, you select the best hyperparameter settings for your data and needs.
-
-As the number of hyperparameters and the lists of desired values increase this obviously becomes quite tedious and difficult to manage.
-
-A Little Help?
-
-For several years H2O has included grid search, also known as Cartesian Hyperparameter Search or exhaustive search. Grid search builds models for every combination of hyperparameter values that you specify.
-
-Bergstra and Bengio write on p. 283:
-
-Grid search … typically finds a better [set of hyperparameters] than purely manual sequential optimization (in the same amount of time)
-
-H2O keeps track of all the models resulting from the search, and allows you to sort the list based on any supported model metric (e.g., AUC or log loss). For the example above, H2O would build your 12 models and return the list sorted with the best first, either using the metric of your choice or automatically using one that’s generally appropriate for your model’s category.
-
-H2O allows you to run multiple hyperparameter searches and to collect all the models for comparison in a single sortable result set: just name your grid and run multiple searches. You can even add models from manual searches to the result set by specifying a grid search with a single value for each interesting hyperparameter:
-
----
 #### Activation Functions
 - **Rectifier**: is the default activation function. It is the fastest and most versatile option. It can lead to instabilities though and tends to be lower in accuracy.
-- **Tanh**: ia a scaled and shifted variant of the sigmoid activation function. It can take on values from -1 to 1 and centers around 0. Tanh needs more computational power than e.g. the Rectifier function.
-- **Maxout**: is computationally quite demanding but can produce high accuracy models.
+- **Tanh**: The hyperbolic tangent is a scaled and shifted variant of the sigmoid activation function. It can take on values from -1 to 1 and centers around 0. Tanh needs more computational power than e.g. the Rectifier function.
+- **Maxout**: is an activation function that is the max of the inputs. It is computationally quite demanding but can produce high accuracy models.
 
-- **...WithDropout**: works together with the parameter *hidden_dropout_ratios* (ontrols the amount of layer neurons that are randomly dropped for each hidden layer). Hidden dropout ratios are useful for preventing overfitting on learned features.
+- **...WithDropout**: When we specify *with dropout*, a random subset of the network is trained and the weights of all subnetworks are averaged. Works together with the parameter *hidden_dropout_ratios* (controls the amount of layer neurons that are randomly dropped for each hidden layer). Hidden dropout ratios are useful for preventing overfitting on learned features.
+
+#### Hidden layers
+- are the most important hyper-parameter to set for deep neural networks, as they specify how many hidden layers and how many nodes per hidden layer the model should learn
 
 #### L1 and L2 penalties
 - **L1**: lets only strong weights survive
 - **L2**: prevents any single weight from getting too big. 
 
+`rho` and `epsilon`, which balance the global and local search efficiencies. `rho` is the similarity to prior weight updates (similar to momentum), and `epsilon` is a parameter that prevents the optimization to get stuck in local optima. Defaults are `rho=0.99` and `epsilon=1e-8`. For cases where convergence speed is very important, it might make sense to perform a few runs to optimize these two parameters (e.g., with `rho in c(0.9,0.95,0.99,0.999)` and `epsilon in c(1e-10,1e-8,1e-6,1e-4)`). Of course, as always with grid searches, caution has to be applied when extrapolating grid search results to a different parameter regime (e.g., for more epochs or different layer topologies or activation functions, etc.).
+
+
 ```{r}
 hyper_params <- list(
-                     activation = c("Rectifier", "Maxout", "Tanh"), #, "RectifierWithDropout", "MaxoutWithDropout", "TanhWithDropout"), 
-                     hidden = list(c(10, 10, 10), c(50, 50, 50), c(100, 100, 100))
-                     #rate = c(0.01, 0.02),
-                     #l1 = c(0, 0.00001, 0.0001), 
-                     #l2 = c(0, 0.00001, 0.0001)
-                     #rate_annealing = c(1e-8, 1e-7, 1e-6)
+                     activation = c("Rectifier", "Maxout", "Tanh", "RectifierWithDropout", "MaxoutWithDropout", "TanhWithDropout"), 
+                     hidden = list(c(5, 5, 5, 5, 5), c(10, 10, 10, 10), c(50, 50, 50), c(100, 100, 100)),
+                     epochs = c(50, 100, 200),
+                     l1 = c(0, 0.00001, 0.0001), 
+                     l2 = c(0, 0.00001, 0.0001),
+                     rate = c(0, 01, 0.005, 0.001),
+                     rate_annealing = c(1e-8, 1e-7, 1e-6),
+                     rho = c(0.9,0.95,0.99,0.999),
+                     epsilon = c(1e-10,1e-8,1e-6,1e-4),
+                     momentum_start = c(0, 0.5),
+                     momentum_stable = c(0.99, 0.5, 0),
+                     input_dropout_ratio = c(0, 0.1, 0.2),
+                     max_w2 = c(10, 100, 1000, 3.4028235e+38)
                      )
 ```
 
@@ -160,11 +127,13 @@ hyper_params <- list(
 ```{r}
 search_criteria <- list(strategy = "RandomDiscrete", 
                         max_models = 100,
-                        max_runtime_secs = 360,
+                        max_runtime_secs = 900,
                         stopping_tolerance = 0.001,
-                        stopping_rounds = 10,
+                        stopping_rounds = 15,
                         seed = 42)
 ```
+
+Now, we can train the model with combinations of hyper-parameters from our specified stopping criteria and hyper-parameter grid.
 
 ```{r}
 dl_grid <- h2o.grid(algorithm = "deeplearning", 
@@ -174,120 +143,192 @@ dl_grid <- h2o.grid(algorithm = "deeplearning",
                     grid_id = "dl_grid",
                     training_frame = train,
                     validation_frame = valid,
-                    epochs = 100,
-                    nfolds = 15,                                   
-                    keep_cross_validation_fold_assignment = TRUE,
+                    nfolds = 25,                           
                     fold_assignment = "Stratified",
-                    score_each_iteration = TRUE,
-                    variable_importances = TRUE,
-                    export_weights_and_biases = TRUE,                   
-                    hyper_params=hyper_params,
-                    search_criteria = search_criteria
+                    hyper_params = hyper_params,
+                    search_criteria = search_criteria,
+                    seed = 42
                     )
 ```
 
-```{r}
-grid <- h2o.getGrid("dl_grid",sort_by="err",decreasing=FALSE)
+We now want to extract the best model from this list. What makes a model *the best* depends on the question you want to address with it: in some cases, the model with highst AUC is the most suitable, or the one with the lowest mean squared error, etc. See [last week's post](https://shiring.github.io/machine_learning/2017/02/27/h2o) again for a more detailed discussion of performance metrics. 
 
-## To see what other "sort_by" criteria are allowed
-#grid <- h2o.getGrid("dl_grid",sort_by="wrong_thing",decreasing=FALSE)
-
-```
+For demonstration purposes, I am choosing the best models from a range of possible quality criteria. We first use the *h2o.getGrid()* function to sort all models by the quality metric we choose (depending on the metric, you want it order by descending or ascending values). We can then get the model that's the first in the list to work with further. This model's hyper-parameters can be accessed via *best_model@allparameters*. You can now work with your best model as with any regular model in **h2o** (for an example see [last week's post](https://shiring.github.io/machine_learning/2017/02/27/h2o)).
 
 ```{r}
-model_ids <- grid@model_ids
-best_model <- h2o.getModel(model_ids[[1]])
+# performance metrics where smaller is better -> order with decreasing = FALSE
+sort_options_1 <- c("mean_per_class_error", "mse", "err")
+
+for (sort_by_1 in sort_options_1) {
+  
+  grid <- h2o.getGrid("dl_grid", sort_by = sort_by_1, decreasing = FALSE)
+  
+  model_ids <- grid@model_ids
+  best_model <- h2o.getModel(model_ids[[1]])
+  
+  assign(paste0("best_model_", sort_by_1), best_model)
+  
+}
+
+
+# performance metrics where bigger is better -> order with decreasing = TRUE
+sort_options_2 <- c("auc", "precision", "accuracy", "recall", "specificity")
+
+for (sort_by_2 in sort_options_2) {
+  
+  grid <- h2o.getGrid("dl_grid", sort_by = sort_by_2, decreasing = TRUE)
+  
+  model_ids <- grid@model_ids
+  best_model <- h2o.getModel(model_ids[[1]])
+  
+  assign(paste0("best_model_", sort_by_2), best_model)
+  
+}
 ```
+
+Let's plot the mean per class error for each best model:
 
 ```{r }
-h2o.mean_per_class_error(best_model, train = TRUE, valid = TRUE, xval = TRUE)
+library(tibble)
+
+sort_options <- c("mean_per_class_error", "mse", "err", "auc", "precision", "accuracy", "recall", "specificity")
+
+for (sort_by in sort_options) {
+  
+  best_model <- get(paste0("best_model_", sort_by))
+  errors <- h2o.mean_per_class_error(best_model, train = TRUE, valid = TRUE, xval = TRUE)
+ 
+  errors_df <- data.frame(model_id = best_model@model_id, sort = sort_by, errors) %>%
+    rownames_to_column(var = "rowname")
+  
+  if (sort_by == "mean_per_class_error") {
+    
+    errors_df_comb <- errors_df
+    
+  } else {
+    
+    errors_df_comb <- rbind(errors_df_comb, errors_df)
+    
+  }
+}
 ```
 
-Now let’s evaluate the model performance on a test set so we get an honest estimate of top model performance.
+```{r fig.height=6, fig.width=8}
+order <- subset(errors_df_comb, rowname == "xval") %>%
+  arrange(errors)
+  
+errors_df_comb %>%
+  mutate(sort = factor(sort, levels = order$sort)) %>%
+  ggplot(aes(x = sort, y = errors, fill = model_id)) +
+    facet_grid(rowname ~ ., scales = "free") +
+    geom_bar(stat = "identity", alpha = 0.8) +
+    scale_fill_brewer(palette = "Set1") +
+    my_theme() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+          plot.margin = unit(c(0.5, 0, 0, 1), "cm")) +
+    labs(x = "")
+```
 
-```{r}
-perf <- h2o.performance(best_model, test)
-plot(perf)
-h2o.mse(perf)
-h2o.auc(perf)
-h2o.confusionMatrix(best_model, test)
+<br>
+
+### Model performance
+
+The ultimate performance test for our model will be it's prediction accuracy on the test set it hasn't seen before. Here, I will compare the AUC and mean squared error for each best model from before. You could of course look at any other quality metric that is most appropriate for your model.
+
+```{r fig.height=5, fig.width=8}
+for (sort_by in sort_options) {
+  
+  best_model <- get(paste0("best_model_", sort_by))
+  mse_auc_test <- data.frame(model_id = best_model@model_id,
+                             sort = sort_by, 
+                             mse = h2o.mse(h2o.performance(best_model, test)),
+                             auc = h2o.auc(h2o.performance(best_model, test)))
+  
+  if (sort_by == "mean_per_class_error") {
+    
+    mse_auc_test_comb <- mse_auc_test
+    
+  } else {
+    
+    mse_auc_test_comb <- rbind(mse_auc_test_comb, mse_auc_test)
+    
+  }
+}
+```
+
+```{r fig.height=5, fig.width=8}
+library(tidyr)
+
+mse_auc_test_comb %>%
+  gather(x, y, mse:auc) %>%
+  ggplot(aes(x = sort, y = y, fill = model_id)) +
+    facet_grid(x ~ ., scales = "free") +
+    geom_bar(stat = "identity", alpha = 0.8, position = "dodge") +
+    scale_fill_brewer(palette = "Set1") +
+    my_theme() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+          plot.margin = unit(c(0.5, 0, 0, 1.5), "cm")) +
+    labs(x = "", y = "value", fill = "")
+```
+
+```{r fig.width=10, fig.height=5}
+for (sort_by in sort_options) {
+  
+  best_model <- get(paste0("best_model_", sort_by))
+  
+  finalRf_predictions <- data.frame(model_id = rep(best_model@model_id, nrow(test)),
+                                    sort = rep(sort_by, nrow(test)),
+                                    class = as.vector(test$class), 
+                                    actual = as.vector(test$diagnosis), 
+                                    as.data.frame(h2o.predict(object = best_model, newdata = test)))
+  
+  finalRf_predictions$accurate <- ifelse(finalRf_predictions$actual == finalRf_predictions$predict, "yes", "no")
+  
+  finalRf_predictions$predict_stringent <- ifelse(finalRf_predictions$arrhythmia > 0.8, "arrhythmia", 
+                                                  ifelse(finalRf_predictions$healthy > 0.8, "healthy", "uncertain"))
+  finalRf_predictions$accurate_stringent <- ifelse(finalRf_predictions$actual == finalRf_predictions$predict_stringent, "yes", 
+                                         ifelse(finalRf_predictions$predict_stringent == "uncertain", "na", "no"))
+  
+  if (sort_by == "mean_per_class_error") {
+    
+    finalRf_predictions_comb <- finalRf_predictions
+    
+  } else {
+    
+    finalRf_predictions_comb <- rbind(finalRf_predictions_comb, finalRf_predictions)
+    
+  }
+}
+```
+
+To get a better overview, I am going to plot the predictions (default and stringent):
+
+```{r fig.width=10, fig.height=4, message=FALSE, warning=FALSE}
+finalRf_predictions_comb %>%
+  ggplot(aes(x = actual, fill = accurate)) +
+    geom_bar(position = "dodge") +
+    scale_fill_brewer(palette = "Set1") +
+    my_theme() +
+    facet_wrap(~ sort, ncol = 4) +
+    labs(fill = "Were\npredictions\naccurate?",
+         title = "Default predictions")
+```
+
+```{r fig.width=10, fig.height=4, message=FALSE, warning=FALSE}
+finalRf_predictions_comb %>%
+  subset(accurate_stringent != "na") %>%
+  ggplot(aes(x = actual, fill = accurate_stringent)) +
+    geom_bar(position = "dodge") +
+    scale_fill_brewer(palette = "Set1") +
+    my_theme() +
+    facet_wrap(~ sort, ncol = 4) +
+    labs(fill = "Were\npredictions\naccurate?",
+         title = "Stringent predictions")
 ```
 
 
 
-####Training Samples per MapReduce Iteration
-The parameter `train_samples_per_iteration` matters especially in multi-node operation. It controls the number of rows trained on for each MapReduce iteration. Depending on the value selected, one MapReduce pass can sample observations, and multiple such passes are needed to train for one epoch. All H2O compute nodes then communicate to agree on the best model coefficients (weights/biases) so far, and the model may then be scored (controlled by other parameters below). The default value of `-2` indicates auto-tuning, which attemps to keep the communication overhead at 5% of the total runtime. The parameter `target_ratio_comm_to_comp` controls this ratio. This parameter is explained in more detail in the [H2O Deep Learning booklet](http://h2o.ai/resources/),
-
-
-####Loss functions, Distributions, Offsets, Observation Weights
-H2O Deep Learning supports advanced statistical features such as multiple loss functions, non-Gaussian distributions, per-row offsets and observation weights.
-In addition to `Gaussian` distributions and `Squared` loss, H2O Deep Learning supports `Poisson`, `Gamma`, `Tweedie` and `Laplace` distributions. It also supports `Absolute` and `Huber` loss and per-row offsets specified via an `offset_column`. Observation weights are supported via a user-specified `weights_column`.
-
-
-`rho` and `epsilon`, which balance the global and local search efficiencies. `rho` is the similarity to prior weight updates (similar to momentum), and `epsilon` is a parameter that prevents the optimization to get stuck in local optima. Defaults are `rho=0.99` and `epsilon=1e-8`. For cases where convergence speed is very important, it might make sense to perform a few runs to optimize these two parameters (e.g., with `rho in c(0.9,0.95,0.99,0.999)` and `epsilon in c(1e-10,1e-8,1e-6,1e-4)`). Of course, as always with grid searches, caution has to be applied when extrapolating grid search results to a different parameter regime (e.g., for more epochs or different layer topologies or activation functions, etc.).
-
-
-In the context of artificial neural networks, the rectifier is an activation function defined as
-
-{\displaystyle f(x)=\max(0,x),} {\displaystyle f(x)=\max(0,x),}
-where x is the input to a neuron. This is also known as a ramp function and is analogous to half-wave rectification in electrical engineering. This activation function was first introduced to a dynamical network by Hahnloser et al. in a 2000 paper in Nature[1] with strong biological motivations and mathematical justifications.[2] It has been used in convolutional networks[3] more effectively than the widely used logistic sigmoid (which is inspired by probability theory; see logistic regression) and its more practical[4] counterpart, the hyperbolic tangent. The rectifier is, as of 2015, the most popular activation function for deep neural networks.[5]
-
-A unit employing the rectifier is also called a rectified linear unit (ReLU).[6]
-
-A smooth approximation to the rectifier is the analytic function
-
-{\displaystyle f(x)=\ln(1+e^{x}),} {\displaystyle f(x)=\ln(1+e^{x}),}
-which is called the softplus function.[7] The derivative of softplus is {\displaystyle f'(x)=e^{x}/(e^{x}+1)=1/(1+e^{-x})} {\displaystyle f'(x)=e^{x}/(e^{x}+1)=1/(1+e^{-x})}, i.e. the logistic function.
-
-Rectified linear units find applications in computer vision[3] and speech recognition[8][9] using deep neural nets.
-
-A maxout layer is simply a layer where the activation function is the max of the inputs. As stated in the paper, even an MLP with 2 maxout units can approximate any function. They give a couple of reasons as to why maxout may be performing well, but the main reason they give is the following --
-
-Dropout can be thought of as a form of model averaging in which a random subnetwork is trained at every iteration and in the end the weights of the different such random networks are averaged. Since one cannot average the weights explicitly, an approximation is used. This approximation is exact for for a linear network 
-In maxout, they do not drop the inputs to the maxout layer. Thus the identity of the input outputting the max value for a data point remains unchanged. Thus the dropout only happens in the linear part of the MLP but one can still approximate any function because of the maxout layer. 
-As the dropout happens in the linear part only, they conjecture that this leads to more efficient model averaging as the averaging approximation is exact for linear networks.
-
-tanh: Hyperbolic tangent:
-Although tanh is just a scaled and shifted version of a logistic sigmoid, one of the prime reasons why tanh is the preferred activation/transfer function is because it squashes to a wider numerical range (-1..1) and has asymptotic symmetry.
-
-There are several implications to these properties,
-
-It results in faster convergence than the standard logistic function.
-On average, it's more likely to create output values that are close to 0, which is beneficial when forward propagating to subsequent layers.
-Overall makes training less difficult as it less proned to saturation in the later layers of your network.
-When supplying transformed or normalized inputs, the variance of the outputs will also be close to 1. This makes it great for when you're training on image corpora.
-It also has a nice derivative (1-tanh^2)! For training purposes, you can calculate the value of the derivative just by using the output, no knowledge of the input is needed.
-Yann Lecun's shares some great insight in his paper Efficient Backpropagation on why tanh works well in-practice.
-
-From my own experience, I've found tanh particularly beneficial when used with deep-convolutional neural networks. The intuition behind choosing an ideal activation functions moreso depending on the nature of your problem, dataset, and type of network.
-
-It's best to test it out yourself and compare the results emprically; there are many times where it won't make much of a difference at all (especially in shallow networks).
-
-On the field of Artificial Neural Networks, the sigmoid funcion is a type of activation function for artifical neurons.
-
-The most basic activation funciton is the Heaviside (binary step, 0 or 1, high or low):
-
-You can have several types of activation functions and they are best suitable for different purposes. In the specific case of the Sigmoid:
-
-Real-valued and differentiable (you need this to find gradients);
-Analytic tractability for the differentiaton operation;
-It is an acceptable mathematical representation of a biological neuron behaviour. The output shows if the neuron is firing or not.
-There is a table with the various types of activation functions:
-
-Activation function
-
-Most of the time you will be concerned about the following points when choosing the activation function:
-
-continuity of the function
-computational power to process all neurons of the network
-type of the desired output (logistic/continuous variables or classification/categorical data)
-
-
-
-
-Let's see which model had the lowest validation error:
-
-```{r}
+```{r echo=FALSE, eval=FALSE}
 scores <- cbind(as.data.frame(unlist((lapply(dl_grid@model_ids, function(x)
 { h2o.confusionMatrix(h2o.performance(h2o.getModel(x),valid=T))$Error[3] })) )), unlist(dl_grid@model_ids))
 
@@ -300,11 +341,7 @@ best_err <- sorted_scores$misclassification[1]
 print(best_err)
 ```
 
-### Random Hyper-Parameter Search
-
-Often, hyper-parameter search for more than 4 parameters can be done more efficiently with random parameter search than with grid search. Basically, chances are good to find one of many good models in less time than performing an exhaustive grid search. We simply build `N` models with parameters drawn randomly from user-specified distributions (here, uniform). For this example, we use the adaptive learning rate and focus on tuning the network architecture and the regularization parameters.
-
-```{r}
+```{r echo=FALSE, eval=FALSE}
 models <- c()
 
 for (i in 1:10) {
@@ -337,9 +374,7 @@ for (i in 1:10) {
 }
 ```
 
-We continue to look for the model with the lowest validation misclassification rate:
-
-```{r}
+```{r echo=FALSE, eval=FALSE}
 best_err <- 1
 for (i in 1:length(models)) {
   err <- h2o.confusionMatrix(h2o.performance(models[[i]],valid=T))$Error[3]
@@ -356,9 +391,7 @@ best_params$l2
 best_params$input_dropout_ratio
 ```
 
-Let's continue training the manually tuned model from before, for 2 more epochs. Note that since many important parameters such as `epochs, l1, l2, max_w2, score_interval, train_samples_per_iteration, input_dropout_ratio, hidden_dropout_ratios, score_duty_cycle, classification_stop, regression_stop, variable_importances, force_load_balance` can be modified between checkpoint restarts, it is best to specify as many parameters as possible explicitly.
-
-```{r}
+```{r echo=FALSE, eval=FALSE}
 max_epochs <- 12 ## Add two more epochs
 m_cont <- h2o.deeplearning(model_id="dl_model_tuned_continued",
                           training_frame=train,
@@ -386,3 +419,20 @@ summary(m_cont)
 plot(m_cont)
 ```
 
+------------------------------------------------------------------------
+
+Other machine learning topics I have covered include
+
+- how to run machine learning with Apache Spark in R: [Predicting food preferences with sparklyr (machine learning)
+](https://shiring.github.io/machine_learning/2017/02/19/food_spark)
+- a basic machine learning workflow: [Can we predict flu deaths with Machine Learning and R?](https://shiring.github.io/machine_learning/2016/11/27/flu_outcome_ML_post)
+- extreme gradient boosting: [Extreme Gradient Boosting and Preprocessing in Machine Learning - Addendum to predicting flu outcome with R](https://shiring.github.io/machine_learning/2016/12/02/flu_outcome_ML_2_post)
+- feature selection: [Feature Selection in Machine Learning (Breast Cancer Datasets)](https://shiring.github.io/machine_learning/2017/01/15/rfe_ga_post)
+
+------------------------------------------------------------------------
+
+<br>
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=4, fig.align="center", cache=FALSE}
+sessionInfo()
+```
