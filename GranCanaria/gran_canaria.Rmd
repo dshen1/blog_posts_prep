@@ -152,9 +152,19 @@ load("loc_gc.RData")
 
 ---
 
+```{r}
+data_combined <- data.frame(lat = c(geodata_gc$lat, loc_gc$lat, geodata_tracks$lat),
+                            lon = c(geodata_gc$lon, loc_gc$lon, geodata_tracks$lon),
+                            ele = c(geodata_gc$ele, loc_gc$altitude, geodata_tracks$ele),
+                            track = c(rep("GPS", nrow(geodata_gc)), rep("Google", nrow(loc_gc)), rep("Hiking", nrow(geodata_tracks))))
+```
+
 ```{r fig.width = 10, fig.height = 10, fig.align = "center"}
 ggmap(map) + 
-  geom_point(data = geodata_gc, aes(x = lon, y = lat), alpha = 0.3, color = "blue") +
-  geom_point(data = loc_gc, aes(x = lon, y = lat), alpha = 0.3, color = "red") +
-  geom_point(data = geodata_tracks, aes(x = lon, y = lat), alpha = 0.3, color = "black")
+  geom_point(data = data_combined, aes(x = lon, y = lat, color = track), alpha = 0.3)
+```
+
+```{r fig.width = 10, fig.height = 10, fig.align = "center"}
+ggmap(map) + 
+  geom_point(data = data_combined, aes(x = lon, y = lat, color = ele), alpha = 0.3)
 ```
