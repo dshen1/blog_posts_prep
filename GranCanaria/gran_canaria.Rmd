@@ -180,10 +180,12 @@ load("loc_gc.RData")
 All three datasets had information about the latitude/longitude coordinate pairs and of the elevation of each observation, so I can combine these three attributes from the three location data sources.
 
 ```{r}
+geodata_tracks$ele <- as.numeric(as.character(geodata_tracks$ele))
 data_combined <- data.frame(lat = c(geodata_gc$lat, loc_gc$lat, geodata_tracks$lat),
                             lon = c(geodata_gc$lon, loc_gc$lon, geodata_tracks$lon),
                             ele = c(geodata_gc$ele, loc_gc$altitude, geodata_tracks$ele),
                             track = c(rep("GPS", nrow(geodata_gc)), rep("Google", nrow(loc_gc)), rep("Hiking", nrow(geodata_tracks))))
+data_combined <- data_combined[!duplicated(data_combined), ]
 ```
 
 <br>
@@ -201,3 +203,95 @@ ggmap(map) +
   scale_color_gradient2(low = "lightblue", mid = "blue", high = "red", name = "Elevation") +
   map_theme
 ```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+library(dplyr)
+geodata_gc$time <- as.POSIXct(geodata_gc$time, format = "%Y-%m-%d %H:%M:%S", tz = "GMT")
+
+data_combined_2 <- geodata_gc
+
+# removing duplicate entries
+data_combined_2 <- data_combined_2[!duplicated(data_combined_2), ]
+
+# order by time
+data_combined_2 <- data_combined_2[order(data_combined_2$time, decreasing = FALSE), ]
+
+# Shifting vectors for latitude and longitude to include end position
+shift.vec <- function(vec, shift) {
+  if (length(vec) <= abs(shift)) {
+    rep(NA ,length(vec))
+  } else {
+    if (shift >= 0) {
+      c(rep(NA, shift), vec[1:(length(vec) - shift)]) }
+    else {
+      c(vec[(abs(shift) + 1):length(vec)], rep(NA, abs(shift)))
+    }
+  }
+}
+
+data_combined_2$lat.p1 <- shift.vec(data_combined_2$lat, -1)
+data_combined_2$lon.p1 <- shift.vec(data_combined_2$lon, -1)
+
+# Calculating distances between points (in metres) with the function pointDistance from the 'raster' package.
+
+library(raster)
+data_combined_2$dist.to.prev <- apply(data_combined_2, 1, FUN = function(row) {
+  pointDistance(c(as.numeric(as.character(row["lat.p1"])),
+                  as.numeric(as.character(row["lon.p1"]))),
+                c(as.numeric(as.character(row["lat"])), as.numeric(as.character(row["lon"]))),
+                lonlat = T) # Parameter 'lonlat' has to be TRUE!
+})
+
+round(sum(as.numeric(as.character(data_combined_2$dist.to.prev)), na.rm = TRUE) * 0.001, digits = 2)
+```
+
+```{r}
+map3d <- function(map, ...){
+  if(length(map$tiles)!=1){stop("multiple tiles not implemented") }
+  nx = map$tiles[[1]]$xres
+  ny = map$tiles[[1]]$yres
+  xmin = map$tiles[[1]]$bbox$p1[1]
+  xmax = map$tiles[[1]]$bbox$p2[1]
+  ymin = map$tiles[[1]]$bbox$p1[2]
+  ymax = map$tiles[[1]]$bbox$p2[2]
+  xc = seq(xmin,xmax,len=ny)
+  yc = seq(ymin,ymax,len=nx)
+  colours = matrix(map$tiles[[1]]$colorData,ny,nx)
+  m = matrix(0,ny,nx)
+  surface3d(xc,yc,m,col=colours, ...)
+}
+
+#Sys.setenv(NOAWT=1)   # Mac users: fixes an OSM/X11 issue that may arise
+require(rgl)
+require(OpenStreetMap)
+require(ggplot2)
+require(maptools)
+
+# download map tile (the '8' parameter for map resolution)
+lat <- c(51.7, 51.3); lon <- c(-0.53, 0.3)
+map <- openproj(openmap(c(lat[1],lon[1]),c(lat[2],lon[2]), 8, 'osm'))
+
+# import London rents data (originally from London Data Store)
+rents <- read.csv("http://bit.ly/YZRYEC", header=T)
+head(rents)
+
+# create xyz matrix for line heights (row pairs for segment points)
+m <- mat.or.vec(66, 3)
+for(i in 1:66) for(j in 1:3) m[i,j] = rents[ceiling(i/2),j+2]
+for(i in 1:33) m[i*2,3] = 0; m[,3] = m[,3]/15000
+head(m)
+
+# draw map
+run <- function(){
+  open3d(windowRect=c(100,100,800,600))
+  map3d(map, lit=F)
+  segments3d(m, lwd=5, col='red', alpha=0.6)
+  play3d(spin3d(axis=c(0,0,0.5), rpm=24), duration=2.5)
+}
+run()
+
+# adjust to custom view and save to file
+rgl.snapshot("output.png", fmt="png", top=TRUE)
+Sign up for free
+```
+
