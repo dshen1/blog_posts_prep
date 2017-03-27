@@ -1,20 +1,50 @@
 ---
-title: "Gran Canaria"
+title: "Data on tour"
 author: "Dr. Shirin Glander"
 date: '`r Sys.Date()`'
 output: html_document
 ---
 
-```{r fig.width = 6, fig.height = 5, fig.align = "center"}
+Last week I was on Gran Canaria for a vacation We took hiking trips and explored the island by car and on foot. So, what better way to keep up the holiday spirit a while longer than to visualize all the places we went!? 
+
+I am combining the location data collected by 
+
+1. our car GPS,
+2. Google location data from my phone and
+3. the hiking tracks we followed.
+
+<br>
+
+### The map
+
+I am using ggplot and ggmap. I centered the map to the midpoint of Gran Canaria as given by http://www.travelmath.com/island/Gran+Canaria, which is 27° 57' 54" N / 15° 35' 59" W. Converting to decimal with http://www.rapidtables.com/convert/number/degrees-minutes-seconds-to-degrees.htm that is 27.965 & 15.59972.
+
+```{r fig.width = 6, fig.height = 5, fig.align = "center", warning=FALSE, message=FALSE}
 library(ggplot2)
 library(ggmap)
 
-map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10)
+map_theme <- list(theme(legend.position = "top",
+                        panel.grid.minor = element_blank(),
+                        panel.grid.major = element_blank(),
+                        panel.background = element_blank(),
+                        plot.background = element_rect(fill = "white"),
+                        panel.border = element_blank(),
+                        axis.line = element_blank(),
+                        axis.text.x = element_blank(),
+                        axis.text.y = element_blank(),
+                        axis.ticks = element_blank(),
+                        axis.title.x = element_blank(),
+                        axis.title.y = element_blank(),
+                        plot.title = element_text(size = 18)))
+
+map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10, maptype = "terrain-background", source = "google")
 ```
+
+<br>
 
 ### GPS tracks
 
-https://shiring.github.io/maps/gpx/2016/10/16/roadtrip2016
+The GPS tracks in .gpx format were downloaded from the device (Garmin) the same way as I had already done with the tracks from our [US/Canada roadtrip last year](https://shiring.github.io/maps/gpx/2016/10/16/roadtrip2016). Garmin's .gpx tracks were not in a standard format that could be read with `readGPX()`, so I had to use `htmlTreeParse()` from the *XML* library.
 
 ```{r eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
 library(XML)
@@ -73,10 +103,7 @@ load("geodata_gc.RData")
 
 ### GPX hiking tracks
 
-https://www.rother.de/rother%20wanderf%FChrer-gran%20canaria-4459.htm
-
-	Rother Wanderführer
-7. Auflage 2016
+The hiking tracks we followed came mostly from the [Rother Wanderführer, 7th edition from 2016](https://www.rother.de/rother%20wanderf%FChrer-gran%20canaria-4459.htm). They were in standard .gpx format and could be read with `readGPX()`.
 
 ```{r eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
 library(plotKML)
@@ -115,7 +142,7 @@ load("geodata_tracks.RData")
 
 ### Google location history
 
-https://shiring.github.io/maps/2016/12/30/Standortverlauf_post
+The Google location data I loaded the same way as in [my post about plotting your Google location history](https://shiring.github.io/maps/2016/12/30/Standortverlauf_post).
 
 ```{r eval=FALSE, echo = TRUE, message = FALSE, warning = FALSE, cache=FALSE}
 library(jsonlite)
@@ -133,11 +160,7 @@ loc$time = as.POSIXct(as.numeric(x$locations$timestampMs)/1000, origin = "1970-0
 loc$lat = loc$latitudeE7 / 1e7
 loc$lon = loc$longitudeE7 / 1e7
 
-# keep only data from Gran Canaria: http://www.travelmath.com/island/Gran+Canaria
-# 27° 57' 54" N / 15° 35' 59" W
-# convert to decimal: http://www.rapidtables.com/convert/number/degrees-minutes-seconds-to-degrees.htm
-# 27.965 & 15.59972
-library(dplyr)
+# keep only data from Gran Canaria
 loc_gc <- filter(loc, lat < 28.5 & lat > 27.5) %>%
   filter(lon > -16 & lon < -15)
 ```
@@ -152,6 +175,10 @@ load("loc_gc.RData")
 
 ---
 
+<br>
+
+All three datasets had information about the latitude/longitude coordinate pairs and of the elevation of each observation, so I can combine these three attributes from the three location data sources.
+
 ```{r}
 data_combined <- data.frame(lat = c(geodata_gc$lat, loc_gc$lat, geodata_tracks$lat),
                             lon = c(geodata_gc$lon, loc_gc$lon, geodata_tracks$lon),
@@ -159,12 +186,18 @@ data_combined <- data.frame(lat = c(geodata_gc$lat, loc_gc$lat, geodata_tracks$l
                             track = c(rep("GPS", nrow(geodata_gc)), rep("Google", nrow(loc_gc)), rep("Hiking", nrow(geodata_tracks))))
 ```
 
-```{r fig.width = 10, fig.height = 10, fig.align = "center"}
+<br>
+
+```{r fig.width = 10, fig.height = 10, fig.align = "center", message=FALSE, warning=FALSE}
 ggmap(map) + 
-  geom_point(data = data_combined, aes(x = lon, y = lat, color = track), alpha = 0.3)
+  geom_point(data = data_combined, aes(x = lon, y = lat, color = track), alpha = 0.3) +
+  scale_color_brewer(palette = "Set1") +
+  map_theme
 ```
 
-```{r fig.width = 10, fig.height = 10, fig.align = "center"}
+```{r fig.width = 10, fig.height = 10, fig.align = "center", message=FALSE, warning=FALSE}
 ggmap(map) + 
-  geom_point(data = data_combined, aes(x = lon, y = lat, color = ele), alpha = 0.3)
+  geom_point(data = na.omit(data_combined), aes(x = lon, y = lat, color = ele)) +
+  scale_color_gradient2(low = "lightblue", mid = "blue", high = "red", name = "Elevation") +
+  map_theme
 ```
