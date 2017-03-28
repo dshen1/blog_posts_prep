@@ -37,7 +37,8 @@ map_theme <- list(theme(legend.position = "top",
                         axis.title.y = element_blank(),
                         plot.title = element_text(size = 18)))
 
-map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10, maptype = "terrain-background", source = "google")
+#map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10, maptype = "terrain-background", source = "google")
+map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10)
 ```
 
 <br>
@@ -49,7 +50,7 @@ The GPS tracks in .gpx format were downloaded from the device (Garmin) the same 
 ```{r eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
 library(XML)
 
-myfiles <- list.files(path = "~/Documents/Github/Takeout_2017_March", full.names = TRUE)
+myfiles <- list.files(path = "Takeout_2017_March", full.names = TRUE)
 myfiles <- myfiles[grep(".gpx", myfiles)]
 
 for (i in 1:length(myfiles)) {
@@ -108,7 +109,7 @@ The hiking tracks we followed came mostly from the [Rother Wanderführer, 7th ed
 ```{r eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
 library(plotKML)
 
-myfiles <- list.files(path = "~/Documents/Github/Takeout_2017_March/hiking", full.names = TRUE)
+myfiles <- list.files(path = "hiking", full.names = TRUE)
 myfiles <- myfiles[grep(".gpx", myfiles)]
 
 for (i in 1:length(myfiles)) {
@@ -146,7 +147,7 @@ The Google location data I loaded the same way as in [my post about plotting you
 
 ```{r eval=FALSE, echo = TRUE, message = FALSE, warning = FALSE, cache=FALSE}
 library(jsonlite)
-system.time(x <- fromJSON("~/Documents/Github/Takeout_2017_March/Standortverlauf.json"))
+system.time(x <- fromJSON("Standortverlauf.json"))
 ```
 
 ```{r eval=FALSE, echo = TRUE, message = FALSE, warning = FALSE, cache=FALSE}
@@ -245,53 +246,91 @@ data_combined_2$dist.to.prev <- apply(data_combined_2, 1, FUN = function(row) {
 round(sum(as.numeric(as.character(data_combined_2$dist.to.prev)), na.rm = TRUE) * 0.001, digits = 2)
 ```
 
+```{r fig.width=10, fig.height=10}
+library(maptools)
+library(raster)
+srtm <- getData("SRTM", lon=-15.59972, lat=27.965)
+
+e <- extent(min(data_combined$lon) - 0.2, # xmin
+            max(data_combined$lon) + 0.1, # xmax
+            min(data_combined$lat) - 0.1, # ymin
+            max(data_combined$lat) + 0.1) # ymax
+
+srtm_c <- crop(srtm, e)
+
+raster::persp(srtm_c,
+              xlab = "Longitude", ylab = "Latitude", zlab = "Elevation",
+              phi = 45, theta = 45,
+              expand = 0.5,
+              col = "forestgreen", border = NULL,
+              box = TRUE)
+
+raster::persp(srtm_c,
+              xlab = "Longitude", ylab = "Latitude", zlab = "Elevation",
+              phi = 45, theta = 225,
+              expand = 0.5,
+              col = "forestgreen", border = NULL,
+              box = TRUE)
+```
+
 ```{r}
-map3d <- function(map, ...){
-  if(length(map$tiles)!=1){stop("multiple tiles not implemented") }
-  nx = map$tiles[[1]]$xres
-  ny = map$tiles[[1]]$yres
-  xmin = map$tiles[[1]]$bbox$p1[1]
-  xmax = map$tiles[[1]]$bbox$p2[1]
-  ymin = map$tiles[[1]]$bbox$p1[2]
-  ymax = map$tiles[[1]]$bbox$p2[2]
-  xc = seq(xmin,xmax,len=ny)
-  yc = seq(ymin,ymax,len=nx)
-  colours = matrix(map$tiles[[1]]$colorData,ny,nx)
-  m = matrix(0,ny,nx)
-  surface3d(xc,yc,m,col=colours, ...)
-}
+x <- terrain(srtm_c, opt = c("slope", "aspect"), unit = "degrees")
+plot(x)
 
-#Sys.setenv(NOAWT=1)   # Mac users: fixes an OSM/X11 issue that may arise
-require(rgl)
-require(OpenStreetMap)
-require(ggplot2)
-require(maptools)
+slope <- terrain(srtm_c, opt = "slope")
+aspect <- terrain(srtm_c, opt = "aspect")
+hill <- hillShade(slope, aspect, 40, 270)
+plot(hill, col = grey(0:100/100))
+```
 
-# download map tile (the '8' parameter for map resolution)
-lat <- c(51.7, 51.3); lon <- c(-0.53, 0.3)
-map <- openproj(openmap(c(lat[1],lon[1]),c(lat[2],lon[2]), 8, 'osm'))
+```{r message=FALSE, warning=FALSE}
+library(rgdal)
+library(rasterVis)
+library(rgl)
+library(htmlwidgets)
+```
 
-# import London rents data (originally from London Data Store)
-rents <- read.csv("http://bit.ly/YZRYEC", header=T)
-head(rents)
+```{r 3dplot, echo=FALSE, eval=FALSE, fig.width=20, fig.height=20, webgl=TRUE}
+library(knitr)
+knit_hooks$set(webgl = hook_webgl)
 
-# create xyz matrix for line heights (row pairs for segment points)
-m <- mat.or.vec(66, 3)
-for(i in 1:66) for(j in 1:3) m[i,j] = rents[ceiling(i/2),j+2]
-for(i in 1:33) m[i*2,3] = 0; m[,3] = m[,3]/15000
-head(m)
+open3d() # Open a new RGL device
+bg3d(color = "white") # Setup the background color
+plot3D(srtm_c)
+#writeWebGL(dir = "webGL", filename = file.path(getwd(), "index.html"), width = 1000, height = 1000)
+#browseURL(paste("file://", writeWebGL(dir=file.path(getwd(), "webGL"), width=1000), sep=""))
+#movie3d(spin3d(axis = c(0, 0, 1)), duration = 3, dir = getwd(), clean = TRUE)
+```
 
-# draw map
-run <- function(){
-  open3d(windowRect=c(100,100,800,600))
-  map3d(map, lit=F)
-  segments3d(m, lwd=5, col='red', alpha=0.6)
-  play3d(spin3d(axis=c(0,0,0.5), rpm=24), duration=2.5)
-}
-run()
+```{r }
+options(rgl.printRglwidget = TRUE)
 
-# adjust to custom view and save to file
-rgl.snapshot("output.png", fmt="png", top=TRUE)
-Sign up for free
+open3d()
+plot3D(srtm_c)
+rglscene <- scene3d()
+# render the saved rgl scene as widget in the markdown page
+rglwidget(rglscene)
+```
+
+```{r echo=FALSE, eval=FALSE}
+save <- getOption("rgl.useNULL")
+options(rgl.useNULL=TRUE)
+plot3D(srtm_c)
+widget <- rglwidget()
+if (interactive())
+  widget
+```
+
+```{r echo=FALSE, eval=FALSE}
+# Save it to a file.  This requires pandoc
+open3d()
+plot3D(srtm_c)
+filename <- "test.html"
+htmlwidgets::saveWidget(rglwidget(), filename)
+browseURL(filename)
+```
+
+```{r}
+rgl.close()
 ```
 
