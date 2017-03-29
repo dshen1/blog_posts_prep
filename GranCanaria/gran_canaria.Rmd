@@ -37,8 +37,8 @@ map_theme <- list(theme(legend.position = "top",
                         axis.title.y = element_blank(),
                         plot.title = element_text(size = 18)))
 
-#map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10, maptype = "terrain-background", source = "google")
-map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10)
+map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10, maptype = "terrain-background", source = "google")
+#map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10)
 ```
 
 <br>
@@ -251,6 +251,13 @@ library(maptools)
 library(raster)
 srtm <- getData("SRTM", lon=-15.59972, lat=27.965)
 
+raster::persp(srtm,
+              xlab = "Longitude", ylab = "Latitude", zlab = "Elevation",
+              phi = 45, theta = 0,
+              expand = 0.1,
+              col = "forestgreen", border = NULL,
+              box = TRUE)
+
 e <- extent(min(data_combined$lon) - 0.2, # xmin
             max(data_combined$lon) + 0.1, # xmax
             min(data_combined$lat) - 0.1, # ymin
@@ -306,10 +313,13 @@ plot3D(srtm_c)
 options(rgl.printRglwidget = TRUE)
 
 open3d()
+plot3D(srtm)
+
+open3d()
 plot3D(srtm_c)
 rglscene <- scene3d()
 # render the saved rgl scene as widget in the markdown page
-rglwidget(rglscene)
+rglwidget(rglscene,webGLoptions = list(preserveDrawingBuffer = FALSE))
 ```
 
 ```{r echo=FALSE, eval=FALSE}
