@@ -302,7 +302,6 @@ library(knitr)
 knit_hooks$set(webgl = hook_webgl)
 
 open3d() # Open a new RGL device
-bg3d(color = "white") # Setup the background color
 plot3D(srtm_c)
 #writeWebGL(dir = "webGL", filename = file.path(getwd(), "index.html"), width = 1000, height = 1000)
 #browseURL(paste("file://", writeWebGL(dir=file.path(getwd(), "webGL"), width=1000), sep=""))
@@ -312,35 +311,17 @@ plot3D(srtm_c)
 ```{r }
 options(rgl.printRglwidget = TRUE)
 
-open3d()
-plot3D(srtm)
+#open3d()
+#plot3D(srtm_c, maxpixels = 7e4)
 
 open3d()
-plot3D(srtm_c)
-rglscene <- scene3d()
+plot3D(srtm_c,  maxpixels = 7e4)
+#rglscene <- scene3d()
 # render the saved rgl scene as widget in the markdown page
-rglwidget(rglscene,webGLoptions = list(preserveDrawingBuffer = FALSE))
+#rglwidget(rglscene, webGLoptions = list(preserveDrawingBuffer = FALSE))
 ```
 
-```{r echo=FALSE, eval=FALSE}
-save <- getOption("rgl.useNULL")
-options(rgl.useNULL=TRUE)
-plot3D(srtm_c)
-widget <- rglwidget()
-if (interactive())
-  widget
-```
-
-```{r echo=FALSE, eval=FALSE}
-# Save it to a file.  This requires pandoc
-open3d()
-plot3D(srtm_c)
-filename <- "test.html"
-htmlwidgets::saveWidget(rglwidget(), filename)
-browseURL(filename)
-```
-
-```{r}
+```{r eval=FALSE, echo=FALSE}
 rgl.close()
 ```
 
