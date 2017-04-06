@@ -267,33 +267,37 @@ sessionInfo()
 ```
 
     ## R version 3.3.3 (2017-03-06)
-    ## Platform: x86_64-apple-darwin13.4.0 (64-bit)
-    ## Running under: macOS Sierra 10.12.3
+    ## Platform: x86_64-w64-mingw32/x64 (64-bit)
+    ## Running under: Windows 7 x64 (build 7601) Service Pack 1
     ## 
     ## locale:
-    ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+    ## [1] LC_COLLATE=English_United States.1252 
+    ## [2] LC_CTYPE=English_United States.1252   
+    ## [3] LC_MONETARY=English_United States.1252
+    ## [4] LC_NUMERIC=C                          
+    ## [5] LC_TIME=English_United States.1252    
     ## 
     ## attached base packages:
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
     ## 
     ## other attached packages:
     ## [1] tidyr_0.6.1         dplyr_0.5.0         randomForest_4.6-12
-    ## [4] caret_6.0-73        ggplot2_2.2.1       lattice_0.20-34    
+    ## [4] caret_6.0-73        ggplot2_2.2.1.9000  lattice_0.20-35    
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] Rcpp_0.12.9        nloptr_1.0.4       plyr_1.8.4        
+    ##  [1] Rcpp_0.12.10       nloptr_1.0.4       plyr_1.8.4        
     ##  [4] class_7.3-14       iterators_1.0.8    tools_3.3.3       
     ##  [7] digest_0.6.12      lme4_1.1-12        evaluate_0.10     
     ## [10] tibble_1.2         gtable_0.2.0       nlme_3.1-131      
     ## [13] mgcv_1.8-17        Matrix_1.2-8       foreach_1.4.3     
-    ## [16] DBI_0.5-1          yaml_2.1.14        parallel_3.3.3    
-    ## [19] SparseM_1.74       e1071_1.6-8        stringr_1.2.0     
+    ## [16] DBI_0.6            yaml_2.1.14        parallel_3.3.3    
+    ## [19] SparseM_1.76       e1071_1.6-8        stringr_1.2.0     
     ## [22] knitr_1.15.1       MatrixModels_0.4-1 stats4_3.3.3      
     ## [25] rprojroot_1.2      grid_3.3.3         nnet_7.3-12       
-    ## [28] R6_2.2.0           rmarkdown_1.3      minqa_1.2.4       
+    ## [28] R6_2.2.0           rmarkdown_1.4      minqa_1.2.4       
     ## [31] reshape2_1.4.2     car_2.1-4          magrittr_1.5      
     ## [34] backports_1.0.5    scales_0.4.1       codetools_0.2-15  
     ## [37] ModelMetrics_1.1.0 htmltools_0.3.5    MASS_7.3-45       
-    ## [40] splines_3.3.3      assertthat_0.1     pbkrtest_0.4-6    
+    ## [40] splines_3.3.3      assertthat_0.1     pbkrtest_0.4-7    
     ## [43] colorspace_1.3-2   labeling_0.3       quantreg_5.29     
-    ## [46] stringi_1.1.2      lazyeval_0.2.0     munsell_0.4.3
+    ## [46] stringi_1.1.3      lazyeval_0.2.0     munsell_0.4.3
