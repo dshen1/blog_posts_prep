@@ -5,9 +5,9 @@ date: '`r Sys.Date()`'
 output: html_document
 ---
 
-Last week I was on Gran Canaria for a vacation We took hiking trips and explored the island by car and on foot. So, what better way to keep up the holiday spirit a while longer than to visualize all the places we went!? 
+Recently, I was on Gran Canaria for a vacation. So, what better way to keep up the holiday spirit a while longer than to visualize all the places we went!? 
 
-I am combining the location data collected by 
+I am combining location data collected by 
 
 1. our car GPS,
 2. Google location data from my phone and
@@ -37,8 +37,8 @@ map_theme <- list(theme(legend.position = "top",
                         axis.title.y = element_blank(),
                         plot.title = element_text(size = 18)))
 
-map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10, maptype = "terrain-background", source = "google")
-#map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10)
+#map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10, maptype = "terrain-background", source = "google")
+map <- get_map(c(lon = -15.59972, lat = 27.965), zoom = 10)
 ```
 
 <br>
@@ -205,7 +205,7 @@ ggmap(map) +
   map_theme
 ```
 
-```{r echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+```{r echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 library(dplyr)
 geodata_gc$time <- as.POSIXct(geodata_gc$time, format = "%Y-%m-%d %H:%M:%S", tz = "GMT")
 
@@ -251,20 +251,15 @@ library(maptools)
 library(raster)
 srtm <- getData("SRTM", lon=-15.59972, lat=27.965)
 
-raster::persp(srtm,
-              xlab = "Longitude", ylab = "Latitude", zlab = "Elevation",
-              phi = 45, theta = 0,
-              expand = 0.1,
-              col = "forestgreen", border = NULL,
-              box = TRUE)
-
 e <- extent(min(data_combined$lon) - 0.2, # xmin
             max(data_combined$lon) + 0.1, # xmax
             min(data_combined$lat) - 0.1, # ymin
             max(data_combined$lat) + 0.1) # ymax
 
 srtm_c <- crop(srtm, e)
+```
 
+```{r echo=FALSE, eval=FALSE, fig.width=10, fig.height=10}
 raster::persp(srtm_c,
               xlab = "Longitude", ylab = "Latitude", zlab = "Elevation",
               phi = 45, theta = 45,
@@ -280,14 +275,20 @@ raster::persp(srtm_c,
               box = TRUE)
 ```
 
-```{r}
-x <- terrain(srtm_c, opt = c("slope", "aspect"), unit = "degrees")
+```{r fig.width=10, fig.height=5}
+x <- terrain(srtm_c, opt = c("slope", "aspect", "TPI", "TRI", "roughness", "flowdir"), unit = "degrees")
 plot(x)
+```
 
+flowdir returns the 'flow direction' (of water), i.e. the direction of the greatest drop in elevation (or the smallest rise if all neighbors are higher). RI (Terrain Ruggedness Index) is the mean of the absolute differences between the value of a cell and the value of its 8 surrounding cells. TPI (Topographic Position Index) is the difference between the value of a cell and the mean value of its 8 surrounding cells. Roughness is the difference between the maximum and the minimum value of a cell and its 8 surrounding cells.
+
+
+```{r}
 slope <- terrain(srtm_c, opt = "slope")
 aspect <- terrain(srtm_c, opt = "aspect")
-hill <- hillShade(slope, aspect, 40, 270)
-plot(hill, col = grey(0:100/100))
+hill <- hillShade(slope, aspect, angle = 45, direction = 45, normalize = TRUE)
+plot(hill, col = grey(0:100/100), legend = FALSE)
+plot(srtm_c, col = rainbow(25, alpha = 0.35), add = TRUE)
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -297,7 +298,7 @@ library(rgl)
 library(htmlwidgets)
 ```
 
-```{r 3dplot, echo=FALSE, eval=FALSE, fig.width=20, fig.height=20, webgl=TRUE}
+```{r echo=FALSE, eval=FALSE, fig.width=20, fig.height=20, webgl=TRUE}
 library(knitr)
 knit_hooks$set(webgl = hook_webgl)
 
@@ -306,22 +307,41 @@ plot3D(srtm_c)
 #writeWebGL(dir = "webGL", filename = file.path(getwd(), "index.html"), width = 1000, height = 1000)
 #browseURL(paste("file://", writeWebGL(dir=file.path(getwd(), "webGL"), width=1000), sep=""))
 #movie3d(spin3d(axis = c(0, 0, 1)), duration = 3, dir = getwd(), clean = TRUE)
-```
-
-```{r }
-options(rgl.printRglwidget = TRUE)
 
 #open3d()
 #plot3D(srtm_c, maxpixels = 7e4)
 
-open3d()
-plot3D(srtm_c,  maxpixels = 7e4)
 #rglscene <- scene3d()
 # render the saved rgl scene as widget in the markdown page
 #rglwidget(rglscene, webGLoptions = list(preserveDrawingBuffer = FALSE))
 ```
 
+```{r }
+options(rgl.printRglwidget = TRUE)
+
+open3d()
+plot3D(srtm_c,  maxpixels = 7e4)
+```
+
 ```{r eval=FALSE, echo=FALSE}
 rgl.close()
+```
+
+```{r fig.width=7, fig.height=5}
+library(scatterplot3d)
+
+# http://gis.stackexchange.com/questions/142156/r-how-to-get-latitudes-and-longitudes-from-a-rasterlayer
+r.pts <- rasterToPoints(srtm_c, spatial=TRUE)
+geo.prj <- proj4string(r.pts)
+r.pts <- spTransform(r.pts, CRS(geo.prj)) 
+bg_matrix <- data.frame(lon = coordinates(r.pts)[,1],
+                         lat = coordinates(r.pts)[,2])                         
+
+ex_bg <- extract(srtm_c, bg_matrix, cellnumbers = TRUE, df = TRUE)
+
+ex_points <- extract(srtm_c, cbind(data_combined$lon, data_combined$lat), cellnumbers = TRUE, df = TRUE)
+
+s3d <- scatterplot3d(x = bg_matrix[, 1], y = bg_matrix[, 2], z = ex_bg$srtm_33_07, type = "p", pch = 16, angle = 55, highlight.3d = TRUE, cex.symbols = 0.5)
+s3d$points3d(x = data_combined$lon, y = data_combined$lat, z = ex_points$srtm_33_07, col = "blue", pch = 16, cex = 0.1)
 ```
 
