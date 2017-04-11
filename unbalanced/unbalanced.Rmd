@@ -99,7 +99,7 @@ Luckily, `caret` makes it very easy to incorporate over- and undersampling techn
 ```{r message=FALSE, warning=FALSE, echo=FALSE, eval=FALSE}
 set.seed(42)
 
-library(dplyr)
+library(tidyverse)
 bc_data_malignant <- filter(bc_data, classes == "malignant")
 bc_data_benign <- filter(bc_data, classes == "benign") %>%
   sample_n(size = nrow(bc_data_malignant))
@@ -324,11 +324,11 @@ for (name in names(models)) {
   model <- get(paste0("cm_", name))
   
   comparison[comparison$model == name, ] <- filter(comparison, model == name) %>%
-    mutate(Sensitivity = model$byClass["Sensitivity"],
-           Specificity = model$byClass["Specificity"],
-           Precision = model$byClass["Precision"],
-           Recall = model$byClass["Recall"],
-           F1 = model$byClass["F1"])
+    mutate_(Sensitivity = model$byClass[["Sensitivity"]],
+           Specificity = model$byClass[["Specificity"]],
+           Precision = model$byClass[["Precision"]],
+           Recall = model$byClass[["Recall"]],
+           F1 = model$byClass[["F1"]])
 }
 
 library(tidyr)

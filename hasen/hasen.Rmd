@@ -1,0 +1,26 @@
+---
+title: "Hare populations in Germany"
+author: "Dr. Shirin Glander"
+date: "April 11, 2017"
+output: html_document
+---
+
+```{r}
+devtools::install_github("ropensci/tabulizer")
+library("tabulizer")
+
+txt <- extract_tables("2015-16 Jahresstrecke Feldhase.pdf")
+
+hares <- txt[[1]] %>%
+  as.data.frame(stringsAsFactors = FALSE)
+
+hares_df <- data.frame(hares[-1 , ])
+
+colnames(hares_df) <- gsub(" ", "", as.character(c("bundesland", unlist(hares[1, -1]))))
+
+hares_df <- apply(hares_df, 2, function(x) gsub(" ", "", x))
+hares_df[, -1] <- apply(hares_df[, -1], 2, function(x) as.numeric(x))
+
+hare_final <- as.data.frame(hares_df, stringsAsFactors = FALSE)
+```
+
