@@ -338,6 +338,26 @@ comparison %>%
     geom_jitter(width = 0.2, alpha = 0.5, size = 3)
 ```
 
+```{r message=FALSE, warning=FALSE, eval=FALSE, echo=FALSE}
+comparison <- data.frame(model = names(models))
+
+for (name in names(models)) {
+  model <- get(paste0("cm_", name))
+  
+  comparison[comparison$model == name, "Sensitivity"]  <- model$byClass[["Sensitivity"]]
+  comparison[comparison$model == name, "Specificity"]  <- model$byClass[["Specificity"]]
+  comparison[comparison$model == name, "Precision"]  <- model$byClass[["Precision"]]
+  comparison[comparison$model == name, "Recall"]  <- model$byClass[["Recall"]]
+  comparison[comparison$model == name, "F1"]  <- model$byClass[["F1"]]
+}
+
+library(tidyr)
+comparison %>%
+  gather(x, y, Sensitivity:F1) %>%
+  ggplot(aes(x = x, y = y, color = model)) +
+    geom_jitter(width = 0.2, alpha = 0.5, size = 3)
+```
+
 <br>
 
 This shows a simple example of how to correct for unbalance in datasets for machine learning. For more advanced instructions and potential caveats with these techniques, check out the excellent [caret documentation](https://topepo.github.io/caret/subsampling-for-class-imbalances.html).

@@ -5,12 +5,13 @@ date: "April 11, 2017"
 output: html_document
 ---
 
-```{r}
-devtools::install_github("ropensci/tabulizer")
-library("tabulizer")
+```{r warning=FALSE, message=FALSE}
+#devtools::install_github("ropensci/tabulizer")
+library(tabulizer)
 
 txt <- extract_tables("2015-16 Jahresstrecke Feldhase.pdf")
 
+library(tidyverse)
 hares <- txt[[1]] %>%
   as.data.frame(stringsAsFactors = FALSE)
 
@@ -22,5 +23,72 @@ hares_df <- apply(hares_df, 2, function(x) gsub(" ", "", x))
 hares_df[, -1] <- apply(hares_df[, -1], 2, function(x) as.numeric(x))
 
 hare_final <- as.data.frame(hares_df, stringsAsFactors = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE, fig.width=15, fig.height=5}
+hare_final %>%
+  gather(x, y, 2:12) %>%
+  mutate(group = ifelse(bundesland == "gesamt", "total", "individual")) %>%
+  ggplot(aes(x = x, y = as.numeric(y), color = bundesland, group = bundesland)) +
+    geom_point() +
+    geom_line() +
+    facet_wrap(~ group, ncol = 2, scales = "free")
+```
+
+https://www.arcgis.com/home/item.html?id=ae25571c60d94ce5b7fcbf74e27c00e0
+© Bundesamt für Kartographie und Geodäsie, Frankfurt am Main, 2011
+
+```{r}
+library(maptools)
+
+#ger <- readShapePoly("shp/vg2500_bld")
+ger <- rgdal::readOGR(dsn = "shp", layer = "vg2500_bld")
+```
+
+```{r}
+class(ger)
+str(ger@data)
+ger@data$GEN
+```
+
+```{r}
+hare_final$GEN <- as.factor(c("Baden-Württemberg", "Bayern", "Berlin", "Brandenburg", "Bremen", "Hamburg", "Hessen", "Mecklenburg-Vorpommern", "Niedersachsen", "Nordrhein-Westfalen", "Rheinland-Pfalz", "Saarland", "Sachsen", "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen", "total"))
+```
+
+```{r}
+library(plyr)
+
+ger_df <- fortify(ger)
+ger@data$id <- rownames(ger@data)
+ger_df_final <- join(ger_df, ger@data, by = "id")
+```
+
+```{r}
+library(ggplot2)
+
+map_theme <- list(theme(panel.grid.minor = element_blank(),
+                        panel.grid.major = element_blank(),
+                        panel.background = element_blank(),
+                        plot.background = element_rect(fill = "white"),
+                        panel.border = element_blank(),
+                        axis.line = element_blank(),
+                        axis.text.x = element_blank(),
+                        axis.text.y = element_blank(),
+                        axis.ticks = element_blank(),
+                        axis.title.x = element_blank(),
+                        axis.title.y = element_blank(),
+                        plot.title = element_text(size = 18)))
+```
+
+```{r}
+colnames(hare_final)[2:12] <- paste0("Y_", gsub("/", "_", colnames(hare_final)[2:12]))
+map <- left_join(ger_df_final, filter(hare_final, bundesland != "gesamt"), by = "GEN")
+
+ggplot(map, aes(long, lat, group = group, fill = as.numeric(Y_2015_16))) +
+  coord_equal() +
+  map_theme +
+  geom_polygon() +
+  geom_path(color = "white", size = 0.5) +
+  scale_fill_gradient2(low = "blue", midpoint = 0, mid = "yellow", high = "red")
 ```
 
