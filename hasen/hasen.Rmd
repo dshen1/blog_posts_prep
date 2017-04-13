@@ -5,7 +5,7 @@ date: "April 11, 2017"
 output: html_document
 ---
 
-```{r warning=FALSE, message=FALSE}
+```{r warning=FALSE, message=FALSE, eval=FALSE}
 #devtools::install_github("ropensci/tabulizer")
 library(tabulizer)
 
@@ -25,6 +25,14 @@ hares_df[, -1] <- apply(hares_df[, -1], 2, function(x) as.numeric(x))
 hare_final <- as.data.frame(hares_df, stringsAsFactors = FALSE)
 ```
 
+```{r echo=FALSE, eval=FALSE}
+save(hare_final, file = "hare_final.RData")
+```
+
+```{r echo=FALSE}
+load("hare_final.RData")
+```
+
 ```{r message=FALSE, warning=FALSE, fig.width=15, fig.height=5}
 hare_final %>%
   gather(x, y, 2:12) %>%
@@ -38,7 +46,7 @@ hare_final %>%
 https://www.arcgis.com/home/item.html?id=ae25571c60d94ce5b7fcbf74e27c00e0
 © Bundesamt für Kartographie und Geodäsie, Frankfurt am Main, 2011
 
-```{r}
+```{r warning=FALSE, message=FALSE}
 library(maptools)
 
 #ger <- readShapePoly("shp/vg2500_bld")
@@ -52,24 +60,56 @@ ger@data$GEN
 ```
 
 ```{r}
-hare_final$GEN <- as.factor(c("Baden-Württemberg", "Bayern", "Berlin", "Brandenburg", "Bremen", "Hamburg", "Hessen", "Mecklenburg-Vorpommern", "Niedersachsen", "Nordrhein-Westfalen", "Rheinland-Pfalz", "Saarland", "Sachsen", "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen", "total"))
+hare_final2 <- filter(hare_final, bundesland != "gesamt")
+hare_final2$GEN <- as.factor(c("Baden-Württemberg", "Bayern", "Berlin", "Brandenburg", "Bremen", "Hamburg", "Hessen", "Mecklenburg-Vorpommern", "Niedersachsen", "Nordrhein-Westfalen", "Rheinland-Pfalz", "Saarland", "Sachsen", "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen"))
+colnames(hare_final2)[2:12] <- paste0("Y_", gsub("/", "_", colnames(hare_final)[2:12]))
+
+hare_final2[, 2:12] <- apply(hare_final2[, 2:12], 2, function(x) as.numeric(x))
+```
+
+```{r eval=FALSE}
+library(XML)
+
+table = readHTMLTable("http://www.statistik-portal.de/Statistik-Portal/de_jb01_jahrtab1.asp", header = TRUE, which = 1,stringsAsFactors = FALSE)
+
+table$V1 <- gsub("Ã¼", "ü", table$V1)
+colnames(table) <- c("GEN", "area", "pop_total", "pop_male", "pop_female", "inh_p_km2")
+
+table[, -1] <- apply(table[, -1], 2, function(x) as.numeric(gsub(",", ".", gsub("\\.", "", x))))
+
+table <- table[-17, ]
+table$GEN <- as.factor(table$GEN)
+``` 
+
+```{r echo=FALSE, eval=FALSE}
+save(table, file = "table.RData")
+```
+
+```{r echo=FALSE}
+load("table.RData")
 ```
 
 ```{r}
-library(plyr)
+hare_final2$GEN == table$GEN[1:16]
 
+hare_final3 <- hare_final2 %>%
+  left_join(table, by = "GEN")
+
+hare_final3[, 2:12] <- apply(hare_final3[, 2:12], 2, function(x) x / hare_final3$area)
+```
+
+```{r warning=FALSE, message=FALSE}
+library(plyr)
 ger_df <- fortify(ger)
 ger@data$id <- rownames(ger@data)
 ger_df_final <- join(ger_df, ger@data, by = "id")
 ```
 
 ```{r}
-library(ggplot2)
-
 map_theme <- list(theme(panel.grid.minor = element_blank(),
                         panel.grid.major = element_blank(),
-                        panel.background = element_blank(),
-                        plot.background = element_rect(fill = "white"),
+                        panel.background =element_rect(fill = "transparent", color = NA),
+                        plot.background = element_rect(fill = "transparent", color = NA),
                         panel.border = element_blank(),
                         axis.line = element_blank(),
                         axis.text.x = element_blank(),
@@ -81,14 +121,117 @@ map_theme <- list(theme(panel.grid.minor = element_blank(),
 ```
 
 ```{r}
-colnames(hare_final)[2:12] <- paste0("Y_", gsub("/", "_", colnames(hare_final)[2:12]))
-map <- left_join(ger_df_final, filter(hare_final, bundesland != "gesamt"), by = "GEN")
-
-ggplot(map, aes(long, lat, group = group, fill = as.numeric(Y_2015_16))) +
-  coord_equal() +
-  map_theme +
-  geom_polygon() +
-  geom_path(color = "white", size = 0.5) +
-  scale_fill_gradient2(low = "blue", midpoint = 0, mid = "yellow", high = "red")
+map <- left_join(ger_df_final, hare_final3, by = "GEN")
 ```
 
+```{r fig.width=10, fig.height=10, warning=FALSE, message=FALSE}
+all <- hare_final2 %>%
+  gather(x, y, Y_2005_06:Y_2015_16) %>%
+  group_by(GEN) %>%
+  dplyr::summarise(all = sum(na.omit(y)))
+```
+
+```{r fig.width=10, fig.height=10, warning=FALSE, message=FALSE, echo=FALSE, eval=FALSE}
+library(RColorBrewer)
+
+hare_final2 %>%
+  gather(x, y, Y_2005_06:Y_2015_16) %>%
+  left_join(all, by = "GEN") %>%
+  mutate(perc = as.numeric(paste0(round(100 * y / all, digits = 2)))) %>%
+  ggplot(aes(x = 1, y = perc, fill = x)) +
+    geom_bar(stat="identity", width=1) + 
+    coord_polar(theta="y") + 
+    xlab(NULL) + 
+    ylab(NULL) + 
+    theme(plot.margin = unit(c(0,0,0,0),"mm")) +
+    facet_wrap(~ GEN, ncol = 4) +
+    theme_minimal() +
+    theme(axis.text.x=element_blank()) +
+    scale_fill_manual(values = colorRampPalette(brewer.pal(16, "Accent"))(16))
+```
+
+```{r}
+p1 <- ggplot(map, aes(long, lat, group = group, fill = Y_2015_16)) +
+  map_theme +
+  geom_polygon() +
+  geom_path(color = "white", size = 0.5) + 
+  scale_fill_gradientn(colors = rev(terrain.colors(10)), limits = c(0, max(as.numeric(hare_final3$Y_2015_16)))) +
+  coord_cartesian(ylim = c(47, 55.5), xlim = c(5, 15.5)) +
+  theme(legend.justification = "top")
+```
+
+```{r}
+library(scatterpie)
+
+# http://stackoverflow.com/questions/10368180/plotting-pie-graphs-on-map-in-ggplot
+getLabelPoint <- function(county) {Polygon(county[c('long', 'lat')])@labpt}
+
+centroids <- by(map, map$GEN, getLabelPoint)    
+centroids <- do.call("rbind.data.frame", centroids) %>%
+  tibble::rownames_to_column()
+names(centroids) <- c("GEN", "long", "lat")
+
+hare_final_pie <- hare_final2 %>%
+  gather(x, y, Y_2005_06:Y_2015_16) %>%
+  left_join(all, by = "GEN") %>%
+  mutate(perc = as.numeric(paste0(round(100 * y / all, digits = 2))),
+         GEN = as.character(GEN))
+
+spread <- spread(hare_final_pie[, c(2, 6, 3)], x, perc)
+
+centroids$GEN <- spread$GEN
+
+hare_final_pie <- left_join(centroids, 
+                            spread, by = "GEN")
+
+colnames(hare_final_pie) <- gsub("Y", "y", colnames(hare_final_pie))
+
+hare_final_pie[hare_final_pie$GEN == "Brandenburg", "long"] <- 14
+hare_final_pie[hare_final_pie$GEN == "Brandenburg", "lat"] <- 52
+
+hare_final_pie[hare_final_pie$GEN == "Niedersachsen", "long"] <- 9.5
+hare_final_pie[hare_final_pie$GEN == "Niedersachsen", "lat"] <- 52.5
+```
+
+```{r}
+hare_final_pie$radius <- 0.2
+
+p2 <- ggplot() +
+  geom_scatterpie(data = hare_final_pie, aes(x = long, y = lat, group = GEN, r = radius), cols = colnames(hare_final_pie)[4:14]) +
+  map_theme +
+  scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Accent"))(16)) +
+  coord_cartesian(ylim = c(47, 55.5), xlim = c(5, 15.5)) +
+  theme(legend.justification = "bottom")
+```
+
+```{r warning=FALSE, echo=FALSE, eval=FALSE}
+hare_final_pie$radius <- 0.2
+ggplot() +
+  geom_polygon(data = map, aes(x = long, y = lat, group = group)) +
+  geom_path(data = map, aes(x = long, y = lat, group = group)) +
+  geom_scatterpie(data = hare_final_pie, aes(x = long, y = lat, group = GEN, r = radius), cols = colnames(hare_final_pie)[4:14]) +
+  theme_minimal() +
+  scale_fill_manual(values = colorRampPalette(brewer.pal(16, "Accent"))(16))
+```
+
+```{r warning=FALSE, fig.width=12, fig.h5}
+library(grid)
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(1, 1 ,widths = unit(1 ,"npc"))))
+print( p1 + theme(legend.position = "right"), vp = viewport( layout.pos.row = 1 , layout.pos.col = 1 ) )
+print( p2 + theme(legend.position = "right"), vp = viewport( layout.pos.row = 1 , layout.pos.col = 1 ) )
+```
+
+```{r}
+library(png)
+my_image <-  readPNG("hare-1154799_1280.png") #https://pixabay.com/de/kaninchen-hase-brown-tier-297212/
+p1 + annotation_raster(my_image, xmin = 9.5, xmax = 10, ymin = 52, ymax= 52.5)
+```
+
+------------------
+
+<br>
+
+```{r }
+sessionInfo()
+```

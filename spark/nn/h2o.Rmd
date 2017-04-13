@@ -100,7 +100,7 @@ p1 <- ggplot(arrhythmia, aes(x = class)) +
 
 Because I am interested in distinguishing healthy from arrhythmia ECGs, I am converting the output to binary format by combining all arrhythmia cases into one class.
 
-```{r, tidy=FALSE}
+```{r tidy=FALSE}
 arrhythmia$diagnosis <- ifelse(arrhythmia$class == 1, "healthy", "arrhythmia")
 arrhythmia$diagnosis <- as.factor(arrhythmia$diagnosis)
 ```
