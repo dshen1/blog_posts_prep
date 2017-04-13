@@ -34,6 +34,7 @@ load("hare_final.RData")
 ```
 
 ```{r message=FALSE, warning=FALSE, fig.width=15, fig.height=5}
+library(tidyverse)
 hare_final %>%
   gather(x, y, 2:12) %>%
   mutate(group = ifelse(bundesland == "gesamt", "total", "individual")) %>%
@@ -194,6 +195,7 @@ hare_final_pie[hare_final_pie$GEN == "Niedersachsen", "lat"] <- 52.5
 ```
 
 ```{r}
+library(RColorBrewer)
 hare_final_pie$radius <- 0.2
 
 p2 <- ggplot() +
@@ -218,14 +220,76 @@ ggplot() +
 library(grid)
 grid.newpage()
 pushViewport(viewport(layout = grid.layout(1, 1 ,widths = unit(1 ,"npc"))))
-print( p1 + theme(legend.position = "right"), vp = viewport( layout.pos.row = 1 , layout.pos.col = 1 ) )
-print( p2 + theme(legend.position = "right"), vp = viewport( layout.pos.row = 1 , layout.pos.col = 1 ) )
+print(p1 + theme(legend.position = "right"), vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(p2 + theme(legend.position = "right"), vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
 ```
 
 ```{r}
 library(png)
 my_image <-  readPNG("hare-1154799_1280.png") #https://pixabay.com/de/kaninchen-hase-brown-tier-297212/
+
 p1 + annotation_raster(my_image, xmin = 9.5, xmax = 10, ymin = 52, ymax= 52.5)
+```
+
+```{r}
+#http://stackoverflow.com/questions/28206611/adding-custom-image-to-geom-polygon-fill-in-ggplot
+# converting raster image to plottable data.frame
+ggplot_rasterdf <- function(color_matrix, bottom = 0, top = 1, left = 0, right = 1) {
+  require("dplyr")
+  require("tidyr")
+
+  if (dim(color_matrix)[3] > 3) hasalpha <- T else hasalpha <- F
+
+  outMatrix <- matrix("#00000000", nrow = dim(color_matrix)[1], ncol = dim(color_matrix)[2])
+
+  for (i in 1:dim(color_matrix)[1])
+    for (j in 1:dim(color_matrix)[2]) 
+      outMatrix[i, j] <- rgb(color_matrix[i,j,1], color_matrix[i,j,2], color_matrix[i,j,3], ifelse(hasalpha, color_matrix[i,j,4], 1))
+
+  colnames(outMatrix) <- seq(1, ncol(outMatrix))
+  rownames(outMatrix) <- seq(1, nrow(outMatrix))
+  as.data.frame(outMatrix) %>% mutate(Y = nrow(outMatrix):1) %>% gather(X, color, -Y) %>% 
+    mutate(X = left + as.integer(as.character(X))*(right-left)/ncol(outMatrix), Y = bottom + Y*(top-bottom)/nrow(outMatrix))
+}
+```
+
+```{r}
+my_image_dat <- 
+  ggplot_rasterdf(my_image, 
+                  left = min(map[map$group == "7.1",]$long), 
+                  right = max(map[map$group == "7.1",]$long),
+                  bottom = min(map[map$group == "7.1",]$lat),
+                  top = max(map[map$group == "7.1",]$lat) )
+```
+
+```{r}
+library(sp)
+
+gr_A_df <- 
+  my_image_dat[point.in.polygon(my_image_dat$X, my_image_dat$Y, 
+                                 map[map$group == "7.1",]$long, 
+                                 map[map$group == "7.1",]$lat) %>% as.logical,]
+
+ggplot() +
+  map_theme +
+  geom_polygon(data = map, aes(long, lat, group = group, fill = Y_2015_16)) + 
+  geom_path(data = map, aes(long, lat, group = group), color = "white", size = 0.5) + 
+  scale_fill_gradientn(colors = rev(terrain.colors(10)), limits = c(0, max(as.numeric(hare_final3$Y_2015_16)))) +
+  geom_tile(data = gr_A_df, aes(x = X, y = Y), fill = gr_A_df$color)
+```
+
+```{r}
+val <- round(filter(hare_final3, GEN == "Bayern")$Y_2015_16 * 10, digits = 0)
+
+df <- data.frame(xmin = seq(from = 0, to = val, by = 1),
+                 xmax = seq(from = 0.5, to = 0.5 + val, by = 1),
+                 ymin = seq(from = 0, to = val, by = 1),
+                 ymax = seq(from = 0.5, to = 0.5 + val, by = 1))
+
+g <- rasterGrob(my_image, interpolate=TRUE)
+
+qplot(1:10, 1:10, geom="blank") +
+  annotation_custom(g, xmin=df$xmin, xmax=df$xmax, ymin=df$ymin, ymax=df$ymax)
 ```
 
 ------------------
