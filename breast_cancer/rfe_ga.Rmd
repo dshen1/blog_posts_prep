@@ -197,7 +197,6 @@ summary(bc_data_3$outcome)
 str(bc_data_3)
 ```
 
-
 ## Principal Component Analysis (PCA)
 
 To get an idea about the dimensionality and variance of the datasets, I am first looking at PCA plots for samples and features. The first two principal components (PCs) show the two components that explain the majority of variation in the data.
