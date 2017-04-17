@@ -24,36 +24,37 @@ radarchart( data  , axistype=1 ,
 )
 
 
-mydata <- data.frame(Analytics = as.numeric(as.character(c("10", "0", "8"))),
-                     Machine_Learning = as.numeric(as.character(c("10", "0", "7"))),
+mydata <- data.frame(Data_Analytics = as.numeric(as.character(c("10", "0", "8"))),
+                     Machine_Learning = as.numeric(as.character(c("10", "0", "8"))),
                      Statistics = as.numeric(as.character(c("10", "0", "7"))),
                      Data_Visualization = as.numeric(as.character(c("10", "0", "8"))),
-                     NGS_Analysis = as.numeric(as.character(c("10", "0", "9"))),
+                     #NGS_Analysis = as.numeric(as.character(c("10", "0", "9"))),
                      R = as.numeric(as.character(c("10", "0", "9"))),
                      Python = as.numeric(as.character(c("10", "0", "4"))),
                      JS_CSS_HTML = as.numeric(as.character(c("10", "0", "3"))),
                      Unix = as.numeric(as.character(c("10", "0", "8"))),
-                     Algorithms = as.numeric(as.character(c("10", "0", "5"))),
-                     Hadoop = as.numeric(as.character(c("10", "0", "0"))),
-                     SQL = as.numeric(as.character(c("10", "0", "0"))),
-                     Data_Mining = as.numeric(as.character(c("10", "0", "4"))),
+                     #Algorithms = as.numeric(as.character(c("10", "0", "5"))),
+                     Hadoop = as.numeric(as.character(c("10", "0", "2"))),
+                     SQL = as.numeric(as.character(c("10", "0", "1"))),
+                     #Data_Mining = as.numeric(as.character(c("10", "0", "4"))),
                      LaTeX = as.numeric(as.character(c("10", "0", "8"))),
                      Communication = as.numeric(as.character(c("10", "0", "8"))),
                      Teamwork = as.numeric(as.character(c("10", "0", "7"))),
                      Teaching = as.numeric(as.character(c("10", "0", "8"))),
                      Biology = as.numeric(as.character(c("10", "0", "9"))),
-                     Evolution = as.numeric(as.character(c("10", "0", "9"))),
-                     Scientific_Research = as.numeric(as.character(c("10", "0", "9"))),
+                     #Evolution = as.numeric(as.character(c("10", "0", "9"))),
+                     #Scientific_Research = as.numeric(as.character(c("10", "0", "9"))),
                      English =  as.numeric(as.character(c("10", "0", "9"))))
 
 colnames(mydata) <- gsub("_", " ", colnames(mydata))
-colnames(mydata)[8] <- "JS/CSS/HTML"
+colnames(mydata)[7] <- "JS/CSS/HTML"
 
 library(RColorBrewer)
 cols <- brewer.pal(n = 4, "Set1")
 
 library(scales)
 
+pdf("spiderchart_2017_04.pdf", width = 6, height = 6)
 radarchart(mydata,
            axistype = 1,
            seg = 5,
@@ -63,9 +64,9 @@ radarchart(mydata,
            plwd = 2,
            pfcol = alpha(cols[1], alpha = 0.5),
            cglwd = 0.8,
-           cglty=1,
+           cglty = 1,
            cglcol = alpha(cols[2], alpha = 0.5),
            axislabcol = cols[2],
            vlcex = 0.7,
            calcex = 0.8)
-
+dev.off()
