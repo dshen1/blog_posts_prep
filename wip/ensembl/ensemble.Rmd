@@ -5,6 +5,12 @@ date: "April 18, 2017"
 output: html_document
 ---
 
+https://www.analyticsvidhya.com/blog/2017/02/introduction-to-ensembling-along-with-implementation-in-r/
+
+
+
+
+
 Previous research in data mining has devised numerous different algorithms for learning tasks. While an individual algorithm might already work decently, one can usually obtain a better predictive by combining several. This approach is referred to as ensemble learning.
 Common examples include random forests, boosting and AdaBost in particular.
 
