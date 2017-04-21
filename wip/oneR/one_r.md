@@ -5,13 +5,13 @@ This week, I am exploring [Holger K. von Jouanne-Diedrich's OneR package](https:
 OneR
 ----
 
-OneR has been developed for the purpose of creating machine learning models that are easy to interpret and understand, while still being as accurate as possible. It is based on the one rule classification algorithm from Holte (1993), which is basically a decision tree cut at the first level. It will find an optimal split for each feature and only use the most important feature with highest training accuracy for classification.
+OneR has been developed for the purpose of creating machine learning models that are easy to interpret and understand, while still being as accurate as possible. It is based on the one rule classification algorithm from Holte (1993), which is basically a decision tree cut at the first level. While the original algorithm has difficulties in handling missing values and numeric data, the package provides enhanced functionality to handle those cases better, e.g. the optbin-function to find optimal splitting points for each feature and introducing a separate class for NA values. The main function of the package is OneR, which finds an optimal split for each feature and only use the most important feature with highest training accuracy for classification.
 
 > [R.C. Holte (1993). Very simple classification rules perform well on most commonly used datasets. Machine Learning. 11:63-91.](http://www.mlpack.org/papers/ds.pdf)
 
 <br>
 
-I installed the lastest stable version of the **OneR** package from [CRAN](https://cran.r-project.org/web/packages/OneR/index.html).
+I installed the lastest stable version of the **OneR** package from [CRAN](https://cran.r-project.org/package=OneR).
 
 ``` r
 library(OneR)
@@ -792,15 +792,11 @@ sessionInfo()
 ```
 
     ## R version 3.3.3 (2017-03-06)
-    ## Platform: x86_64-w64-mingw32/x64 (64-bit)
-    ## Running under: Windows 7 x64 (build 7601) Service Pack 1
+    ## Platform: x86_64-apple-darwin13.4.0 (64-bit)
+    ## Running under: macOS Sierra 10.12.3
     ## 
     ## locale:
-    ## [1] LC_COLLATE=English_United States.1252 
-    ## [2] LC_CTYPE=English_United States.1252   
-    ## [3] LC_MONETARY=English_United States.1252
-    ## [4] LC_NUMERIC=C                          
-    ## [5] LC_TIME=English_United States.1252    
+    ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
     ## 
     ## attached base packages:
     ## [1] parallel  stats     graphics  grDevices utils     datasets  methods  
@@ -812,26 +808,26 @@ sessionInfo()
     ##  [7] rpart_4.1-10        caret_6.0-73        lattice_0.20-35    
     ## [10] doParallel_1.0.10   iterators_1.0.8     foreach_1.4.3      
     ## [13] dplyr_0.5.0         purrr_0.2.2         readr_1.1.0        
-    ## [16] tidyr_0.6.1         tibble_1.3.0        ggplot2_2.2.1.9000 
+    ## [16] tidyr_0.6.1         tibble_1.3.0        ggplot2_2.2.1      
     ## [19] tidyverse_1.1.1     OneR_2.1           
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] lubridate_1.6.0     assertthat_0.2.0    rprojroot_1.2      
-    ##  [4] digest_0.6.12       psych_1.7.3.21      R6_2.2.0           
-    ##  [7] backports_1.0.5     MatrixModels_0.4-1  stats4_3.3.3       
-    ## [10] evaluate_0.10       httr_1.2.1          lazyeval_0.2.0.9000
-    ## [13] readxl_0.1.1        data.table_1.10.4   minqa_1.2.4        
-    ## [16] SparseM_1.76        car_2.1-4           nloptr_1.0.4       
-    ## [19] Matrix_1.2-8        rmarkdown_1.4       labeling_0.3       
-    ## [22] splines_3.3.3       lme4_1.1-12         stringr_1.2.0      
-    ## [25] foreign_0.8-67      munsell_0.4.3       broom_0.4.2        
-    ## [28] modelr_0.1.0        mnormt_1.5-5        mgcv_1.8-17        
-    ## [31] htmltools_0.3.5     nnet_7.3-12         codetools_0.2-15   
-    ## [34] MASS_7.3-45         ModelMetrics_1.1.0  grid_3.3.3         
-    ## [37] nlme_3.1-131        jsonlite_1.4        gtable_0.2.0       
-    ## [40] DBI_0.6-1           magrittr_1.5        scales_0.4.1       
-    ## [43] stringi_1.1.5       reshape2_1.4.2      xml2_1.1.1         
-    ## [46] RColorBrewer_1.1-2  tools_3.3.3         forcats_0.2.0      
-    ## [49] hms_0.3             pbkrtest_0.4-7      yaml_2.1.14        
-    ## [52] colorspace_1.3-2    rvest_0.3.2         knitr_1.15.1       
-    ## [55] haven_1.0.0         quantreg_5.29
+    ##  [1] lubridate_1.6.0    assertthat_0.2.0   rprojroot_1.2     
+    ##  [4] digest_0.6.12      psych_1.7.3.21     R6_2.2.0          
+    ##  [7] backports_1.0.5    MatrixModels_0.4-1 stats4_3.3.3      
+    ## [10] evaluate_0.10      httr_1.2.1         lazyeval_0.2.0    
+    ## [13] readxl_0.1.1       data.table_1.10.4  minqa_1.2.4       
+    ## [16] SparseM_1.76       car_2.1-4          nloptr_1.0.4      
+    ## [19] Matrix_1.2-8       rmarkdown_1.4      labeling_0.3      
+    ## [22] splines_3.3.3      lme4_1.1-12        stringr_1.2.0     
+    ## [25] foreign_0.8-67     munsell_0.4.3      broom_0.4.2       
+    ## [28] modelr_0.1.0       mnormt_1.5-5       mgcv_1.8-17       
+    ## [31] htmltools_0.3.5    nnet_7.3-12        codetools_0.2-15  
+    ## [34] MASS_7.3-45        ModelMetrics_1.1.0 grid_3.3.3        
+    ## [37] nlme_3.1-131       jsonlite_1.4       gtable_0.2.0      
+    ## [40] DBI_0.6-1          magrittr_1.5       scales_0.4.1      
+    ## [43] stringi_1.1.5      reshape2_1.4.2     xml2_1.1.1        
+    ## [46] RColorBrewer_1.1-2 tools_3.3.3        forcats_0.2.0     
+    ## [49] hms_0.3            pbkrtest_0.4-7     yaml_2.1.14       
+    ## [52] colorspace_1.3-2   rvest_0.3.2        knitr_1.15.1      
+    ## [55] haven_1.0.0        quantreg_5.29

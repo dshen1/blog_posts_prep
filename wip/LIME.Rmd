@@ -1,15 +1,33 @@
 ---
-title: "LIME"
+title: "Explaining complex machine learning models with LIME"
 author: "Dr. Shirin Glander"
 date: "April 21, 2017"
 output: html_document
 ---
 
-https://github.com/thomasp85/lime
+The classification decisions made by machine learning models are usually difficult - if not impossible - to understand by our human brains. The complexity of some of the most accurate classifiers, like neural networks, is what makes them perform so well - often with better results than achieved by humans. But it also makes them inherently hard to explain, especially to non-data sciensts.
 
-https://www.oreilly.com/learning/introduction-to-local-interpretable-model-agnostic-explanations-lime
+Especially, if we aim to develop machine learning models for medical diagnostics, high accuracies on test samples might not be enough to sell them to clinicians. Doctors and patients alike will be less inclined to trust a decision made by a model that they don't understand. 
 
+Therefore, we would like to be able to explain in concrete terms why a model classified a case with a certain label, e.g. why one breast mass sample was classified as "malignant" and not as "benign".
 
+[Local Interpretable Model-Agnostic Explanations (LIME)](https://www.oreilly.com/learning/introduction-to-local-interpretable-model-agnostic-explanations-lime) is an attempt to make these complex models at least partly understandable. The method has been published in
+
+> [“Why Should I Trust You?” Explaining the Predictions of Any Classifier. By Marco Tulio Ribeiro, Sameer Singh and Carlos Guestrin from the University of Washington in Seattle](https://arxiv.org/pdf/1602.04938.pdf)
+
+LIME is able to explain all models for which we can obtain prediction probabilities (in R, that is every model that works with `predict(type = "prob")`). It makes use of the fact that linear models are easy to explain because they are based on linear relationships between features and class labels: The complex model function is approximated by **locally** fitting linear models to permutations of the original training set.
+
+On each permutation, a linear model is being fit. Weights are given so that incorrect classification of instances that are more similar to the original data are penalized. This will give an approximation of how much (and in which way) each feature contributed to a decision made by the model.
+
+The code for LIME has originally been made available for [Python](https://github.com/marcotcr/lime) but the awesome Thomas Lin Pederson has already created an [implementation in R](https://github.com/thomasp85/lime). It is not on CRAN (yet, I assume), but you can install it via Github:
+
+```{r eval=FALSE}
+devtools::install_github("thomasp85/lime")
+```
+
+<br>
+
+The data I am using is the World Happiness Data from last week's post. So, let's train a neural network on this data to predict three classes of the happiness scores: low, medium and high.
 
 ```{r}
 load("oneR/data_15_16.RData")
@@ -33,57 +51,55 @@ test_data  <- data_15_16[-index, ]
 
 ```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=4, eval=FALSE}
 set.seed(42)
-model_rf <- caret::train(Happiness.Score.l ~ .,
+model_mlp <- caret::train(Happiness.Score.l ~ .,
                          data = train_data,
-                         method = "rf",
+                         method = "mlp",
                          trControl = trainControl(method = "repeatedcv", 
                                                   number = 10, 
                                                   repeats = 5, 
                                                   verboseIter = FALSE))
 ```
 
-```{r echo=FALSE}
-load("oneR/model_rf.RData")
+```{r echo=FALSE, eval=FALSE}
+save(model_mlp, file = "model_mlp.RData")
 ```
+
+```{r echo=FALSE}
+load("model_mlp.RData")
+```
+
+<br>
+
+### The explanation function
+
+The central function of **lime** is the `lime()` function. It creates the function that is used in the next step for explaining the model's predictions.
+
+We can give a couple of options. Check the function help `?lime` for details but the most important to think about are:
+
+- Should continuous features be binned? And if so, into how many bins?
+
+Here, I am keeping the default `bin_continuous = TRUE` but specify 5 instead of 4 (the default) bins with `n_bins = 5`.
+
+```{r}
+library(lime)
+
+explain <- lime(train_data, model_mlp, bin_continuous = TRUE, n_bins = 5, n_permutations = 1000)
+```
+
+<br>
+
+Now, let's look at how the model is explained. Here, I am not going to look at all test cases but I'm randomly choosing three cases with correct predictions and three with wrong predictions.
 
 ```{r warning=FALSE, message=FALSE}
 pred <- data.frame(sample_id = 1:nrow(test_data),
-                   predict(model_rf, test_data, type = "prob"),
+                   predict(model_mlp, test_data, type = "prob"),
                    actual = test_data$Happiness.Score.l)
   pred$prediction <- colnames(pred)[3:5][apply(pred[, 3:5], 1, which.max)]
   pred$correct <- ifelse(pred$actual == pred$prediction, "correct", "wrong")
 ```
 
-```{r eval=FALSE}
-devtools::install_github("thomasp85/lime")
-```
-
-The central function of **lime** is the `lime()` function.
-
-feature_select: The method to use for feature selection. One of:
-
-"auto": If n_features <= 6 use "forward_selection" else use "highest_weights".
-
-"none": Ignore n_features and use all features.
-
-"forward_selection": Add one feature at a time until n_features is reached, based on quality of a ridge regression model.
-
-"highest_weights": Fit a ridge regression and select the n_features with the highest absolute weight.
-
-"lasso_path": Fit a lasso model and choose the n_features whose lars path converge to zero the latest.
-
-Here, we only have 7 features, I want to look at the top 5.
-
-```{r}
-library(lime)
-
-# Create explanation function
-explain <- lime(train_data, model_rf, bin_continuous = TRUE, n_bins = 5, n_labels = 3, n_features = 5, n_permutations = 1000)
-```
-
-Now, let's look at how the model is explained. I am not going to look at all test cases but I'm randomly choosing three cases with correct predictions and three with wrong predictions.
-
-```{r}
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
 pred_cor <- filter(pred, correct == "correct")
 pred_wrong <- filter(pred, correct == "wrong")
 
@@ -91,52 +107,62 @@ test_data_cor <- test_data %>%
   mutate(sample_id = 1:nrow(test_data)) %>%
   filter(sample_id %in% pred_cor$sample_id) %>%
   sample_n(size = 3) %>%
-  select(-sample_id, - Happiness.Score.l)
+  remove_rownames() %>%
+  tibble::column_to_rownames(var="sample_id") %>%
+  select(-Happiness.Score.l)
 
 test_data_wrong <- test_data %>%
   mutate(sample_id = 1:nrow(test_data)) %>%
   filter(sample_id %in% pred_wrong$sample_id) %>%
   sample_n(size = 3) %>%
-  select(-sample_id, - Happiness.Score.l)
+  remove_rownames() %>%
+  tibble::column_to_rownames(var="sample_id") %>%
+  select(-Happiness.Score.l)
 ```
 
+<br>
+
+The explain function from above can now be used with our test samples.
+
+- How many features do we want to use in the explanatory function? 
+
+Let's say we have a big training set with 100 features. Looking at all features and trying to understand them all could be more confusing than helpful. And very often, the handful of very important features will be enough to predict test samples with a reasonable accuracy (see also my last post on OneR). So, we can choose how many features we want to look at with the `n_features` option.
+
+- How do we want to choose these features?
+
+Next, we specify how we want this subset of features to be found. The default, `auto`, uses forward selection if we chose `n_features` <= 6 and uses the features with highest weights otherwise. We can also directly choose `feature_select = "forward_selection"`, `feature_select = "highest_weights"` or `feature_select = "lasso_path"`. Again, check ?lime` for details.
+
+In our example dataset, we only have 7 features and I want to look at the top 5.
+
+I also want to have explanation for all three class labels in the response variable (low, medium, high happiness), so I am choosing `n_labels = 3`.
+
 ```{r}
-# Explain new observation
 explanation_cor <- explain(test_data_cor, n_labels = 3, n_features = 5)
 explanation_wrong <- explain(test_data_wrong, n_labels = 3, n_features = 5)
 ```
 
-```{r warning=FALSE, message=FALSE, fig.height=10, fig.width=20}
+It will return a tidy tibble object that we can plot with `plot_features()`:
+
+```{r warning=FALSE, message=FALSE, fig.height=6, fig.width=14}
 plot_features(explanation_cor, ncol = 3)
 ```
 
-```{r warning=FALSE, message=FALSE, fig.height=10, fig.width=20}
+```{r warning=FALSE, message=FALSE, fig.height=6, fig.width=14}
 plot_features(explanation_wrong, ncol = 3)
 ```
 
-The return value of the returned function will be a tibble encoding the explanations in a tidy format. The columns are:
+The information in the output tibble is described in the help function `?lime` and can be viewed with
 
-case: The case being explained (the rowname in cases)
-
-predict_label: The label with the highest probability as predicted by model
-
-predict_prob: The probability of predict_label
-
-label: The label being explained
-
-label_prob: The probability of label as predicted by model
-
-feature: The feature used for the explanation
-
-weight: The weight of the feature in the explanation
-
-model_r2: The quality of the model used for the explanation
-
-model_intercept: The intercept of the model used for the explanation
-
-```{r}
-# The output is provided in a nice tidy format
+```{r eval=FALSE}
 tibble::glimpse(explanation_cor)
 ```
 
+---
 
+If you are interested in more machine learning posts, check out [the category listing for **machine_learning** on my blog](https://shiring.github.io/categories.html#machine_learning-ref).
+
+---
+
+```{r}
+sessionInfo()
+```

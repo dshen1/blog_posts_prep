@@ -1,5 +1,5 @@
 ---
-title: "Machine Learning with OneR"
+title: "Does money buy happiness afterall? Machine Learning with One Rule"
 author: "Shirin Glander"
 date: "`r Sys.Date()`"
 output:
@@ -13,13 +13,13 @@ This week, I am exploring [Holger K. von Jouanne-Diedrich's OneR package](https:
 
 ## OneR
 
-OneR has been developed for the purpose of creating machine learning models that are easy to interpret and understand, while still being as accurate as possible. It is based on the one rule classification algorithm from Holte (1993), which is basically a decision tree cut at the first level. It will find an optimal split for each feature and only use the most important feature with highest training accuracy for classification. 
+OneR has been developed for the purpose of creating machine learning models that are easy to interpret and understand, while still being as accurate as possible. It is based on the one rule classification algorithm from Holte (1993), which is basically a decision tree cut at the first level. While the original algorithm has difficulties in handling missing values and numeric data, the package provides enhanced functionality to handle those cases better, e.g. the optbin-function to find optimal splitting points for each feature and introducing a separate class for NA values. The main function of the package is OneR, which finds an optimal split for each feature and only use the most important feature with highest training accuracy for classification. 
 
 > [R.C. Holte (1993). Very simple classification rules perform well on most commonly used datasets. Machine Learning. 11:63-91.](http://www.mlpack.org/papers/ds.pdf)
 
 <br>
 
-I installed the lastest stable version of the **OneR** package from [CRAN](https://cran.r-project.org/web/packages/OneR/index.html).
+I installed the lastest stable version of the **OneR** package from [CRAN](https://cran.r-project.org/package=OneR).
 
 ```{r}
 library(OneR)
