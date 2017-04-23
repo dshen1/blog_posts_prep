@@ -1,8 +1,10 @@
 ---
 title: "Explaining complex machine learning models with LIME"
-author: "Dr. Shirin Glander"
-date: "April 21, 2017"
-output: html_document
+author: "Shirin Glander"
+date: "`r Sys.Date()`"
+output:
+  md_document:
+    variant: markdown_github
 ---
 
 The classification decisions made by machine learning models are usually difficult - if not impossible - to understand by our human brains. The complexity of some of the most accurate classifiers, like neural networks, is what makes them perform so well - often with better results than achieved by humans. But it also makes them inherently hard to explain, especially to non-data sciensts.
@@ -17,7 +19,7 @@ Therefore, we would like to be able to explain in concrete terms why a model cla
 
 LIME is able to explain all models for which we can obtain prediction probabilities (in R, that is every model that works with `predict(type = "prob")`). It makes use of the fact that linear models are easy to explain because they are based on linear relationships between features and class labels: The complex model function is approximated by **locally** fitting linear models to permutations of the original training set.
 
-On each permutation, a linear model is being fit. Weights are given so that incorrect classification of instances that are more similar to the original data are penalized. This will give an approximation of how much (and in which way) each feature contributed to a decision made by the model.
+On each permutation, a linear model is being fit and weights are given so that incorrect classification of instances that are more similar to the original data are penalized (positive weights support a decision, negative weights contradict them). This will give an approximation of how much (and in which way) each feature contributed to a decision made by the model.
 
 The code for LIME has originally been made available for [Python](https://github.com/marcotcr/lime) but the awesome Thomas Lin Pederson has already created an [implementation in R](https://github.com/thomasp85/lime). It is not on CRAN (yet, I assume), but you can install it via Github:
 
@@ -27,10 +29,10 @@ devtools::install_github("thomasp85/lime")
 
 <br>
 
-The data I am using is the World Happiness Data from last week's post. So, let's train a neural network on this data to predict three classes of the happiness scores: low, medium and high.
+The data I am using is the [World Happiness Data from my last post](https://shiring.github.io/machine_learning/2017/04/23/one_r). So, let's train a neural network on this data to predict three classes of the happiness scores: low, medium and high.
 
 ```{r}
-load("oneR/data_15_16.RData")
+load("data_15_16.RData")
 ```
 
 ```{r warning=FALSE, message=FALSE}
@@ -72,9 +74,9 @@ load("model_mlp.RData")
 
 ### The explanation function
 
-The central function of **lime** is the `lime()` function. It creates the function that is used in the next step for explaining the model's predictions.
+The central function of **lime** is `lime()` It creates the function that is used in the next step to explain the model's predictions.
 
-We can give a couple of options. Check the function help `?lime` for details but the most important to think about are:
+We can give a couple of options. Check the help `?lime` for details, but the most important to think about are:
 
 - Should continuous features be binned? And if so, into how many bins?
 
@@ -98,6 +100,8 @@ pred <- data.frame(sample_id = 1:nrow(test_data),
   pred$correct <- ifelse(pred$actual == pred$prediction, "correct", "wrong")
 ```
 
+Beware that we need to give our test-set datatable rownames with the sample names or IDs to be displayed in the header of our explanatory plots below.
+
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
 pred_cor <- filter(pred, correct == "correct")
@@ -108,7 +112,7 @@ test_data_cor <- test_data %>%
   filter(sample_id %in% pred_cor$sample_id) %>%
   sample_n(size = 3) %>%
   remove_rownames() %>%
-  tibble::column_to_rownames(var="sample_id") %>%
+  tibble::column_to_rownames(var = "sample_id") %>%
   select(-Happiness.Score.l)
 
 test_data_wrong <- test_data %>%
@@ -116,25 +120,25 @@ test_data_wrong <- test_data %>%
   filter(sample_id %in% pred_wrong$sample_id) %>%
   sample_n(size = 3) %>%
   remove_rownames() %>%
-  tibble::column_to_rownames(var="sample_id") %>%
+  tibble::column_to_rownames(var = "sample_id") %>%
   select(-Happiness.Score.l)
 ```
 
 <br>
 
-The explain function from above can now be used with our test samples.
+The explain function from above can now be used with our test samples. Further options we can specify are:
 
 - How many features do we want to use in the explanatory function? 
 
-Let's say we have a big training set with 100 features. Looking at all features and trying to understand them all could be more confusing than helpful. And very often, the handful of very important features will be enough to predict test samples with a reasonable accuracy (see also my last post on OneR). So, we can choose how many features we want to look at with the `n_features` option.
+Let's say we have a big training set with 100 features. Looking at all features and trying to understand them all could be more confusing than helpful. And very often, a handful of very important features will be enough to predict test samples with a reasonable accuracy ([see also my last post on OneR](https://shiring.github.io/machine_learning/2017/04/23/one_r)). So, we can choose how many features we want to look at with the `n_features` option.
 
 - How do we want to choose these features?
 
-Next, we specify how we want this subset of features to be found. The default, `auto`, uses forward selection if we chose `n_features` <= 6 and uses the features with highest weights otherwise. We can also directly choose `feature_select = "forward_selection"`, `feature_select = "highest_weights"` or `feature_select = "lasso_path"`. Again, check ?lime` for details.
+Next, we specify how we want this subset of features to be found. The default, `auto`, uses forward selection if we chose `n_features` <= 6 and uses the features with highest weights otherwise. We can also directly choose `feature_select = "forward_selection"`, `feature_select = "highest_weights"` or `feature_select = "lasso_path"`. Again, check `?lime` for details.
 
 In our example dataset, we only have 7 features and I want to look at the top 5.
 
-I also want to have explanation for all three class labels in the response variable (low, medium, high happiness), so I am choosing `n_labels = 3`.
+I also want to have explanation for all three class labels in the response variable (low, medium and high happiness), so I am choosing `n_labels = 3`.
 
 ```{r}
 explanation_cor <- explain(test_data_cor, n_labels = 3, n_features = 5)
@@ -156,6 +160,47 @@ The information in the output tibble is described in the help function `?lime` a
 ```{r eval=FALSE}
 tibble::glimpse(explanation_cor)
 ```
+
+<br>
+
+So, what does this tell us, now? Let's look at case 22 (the first row of our plot for correctly predicted classes): This sample has been correctly predicted to come from the medium happiness group because it
+
+- has a dystopia value between 2.03 & 2.32,
+- a trust/government corruption score below 0.05,
+- a GDP/economy score between 1.06 and 1.23 and
+- a life expectancy score between 0.59 and 0.7.
+
+From the explanation for the label "high" we can also see that this case has a family score bigger than 1.12, which is more representative of high happiness samples.
+
+```{r}
+pred %>%
+  filter(sample_id == 22)
+```
+
+The explanatory function named dystopia the most strongly supporting feature for this prediction. [Dystopia is an imaginary country that has the world’s least-happy people. The purpose in establishing Dystopia is to have a benchmark against which all countries can be favorably compared (no country performs more poorly than Dystopia) in terms of each of the six key variables [...]](http://worldhappiness.report/faq/)
+
+The explanatory plot tells us for each feature and class label in which range of values a representative data point would fall. If it does, this gets counted as support for this prediction, if it does not, it gets scored as contradictory. For case 22 and the feature dystopia, the data point 2.27 falls within the range for medium happiness (between 2.03 and 2.32) with a high weight.
+
+When we look at where this case falls on the range of values for this feature, we can see that is indeed very close to the median of medium training cases and further away from the medians for high and low training cases.
+The other supportive features show us the same trend.
+
+```{r fig.width=15, fig.height=4}
+train_data %>%
+  gather(x, y, Economy..GDP.per.Capita.:Dystopia.Residual) %>%
+  ggplot(aes(x = Happiness.Score.l, y = y)) +
+    geom_boxplot(alpha = 0.8, color = "grey") + 
+    geom_point(data = gather(test_data[22, ], x, y, Economy..GDP.per.Capita.:Dystopia.Residual), color = "red", size = 3) +
+    facet_wrap(~ x, scales = "free", ncol = 4)
+```
+
+An overview over the top 5 explanatory features for case 22 is stored in:
+
+```{r}
+as.data.frame(explanation_cor[1:9]) %>%
+  filter(case == "22")
+```
+
+In a similar way, we can explore why some predictions were wrong.
 
 ---
 
