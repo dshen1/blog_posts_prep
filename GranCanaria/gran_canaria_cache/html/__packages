@@ -1,9 +1,0 @@
-base
-ggplot2
-ggmap
-dplyr
-sp
-raster
-knitr
-rgl
-maptools
