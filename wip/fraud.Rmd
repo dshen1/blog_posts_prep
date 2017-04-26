@@ -1,0 +1,143 @@
+---
+title: "Fraud Analytics"
+author: "Dr. Shirin Glander"
+date: "April 24, 2017"
+output: html_document
+---
+
+https://www.kaggle.com/dalpozz/creditcardfraud
+
+The datasets contains transactions made by credit cards in September 2013 by european cardholders. This dataset presents transactions that occurred in two days, where we have 492 frauds out of 284,807 transactions. The dataset is highly unbalanced, the positive class (frauds) account for 0.172% of all transactions.
+
+It contains only numerical input variables which are the result of a PCA transformation. Unfortunately, due to confidentiality issues, we cannot provide the original features and more background information about the data. Features V1, V2, ... V28 are the principal components obtained with PCA, the only features which have not been transformed with PCA are 'Time' and 'Amount'. Feature 'Time' contains the seconds elapsed between each transaction and the first transaction in the dataset. The feature 'Amount' is the transaction Amount, this feature can be used for example-dependant cost-senstive learning. Feature 'Class' is the response variable and it takes value 1 in case of fraud and 0 otherwise.
+
+Given the class imbalance ratio, we recommend measuring the accuracy using the Area Under the Precision-Recall Curve (AUPRC). Confusion matrix accuracy is not meaningful for unbalanced classification.
+
+The dataset has been collected and analysed during a research collaboration of Worldline and the Machine Learning Group (http://mlg.ulb.ac.be) of ULB (Université Libre de Bruxelles) on big data mining and fraud detection. More details on current and past projects on related topics are available on http://mlg.ulb.ac.be/BruFence and http://mlg.ulb.ac.be/ARTML
+
+Please cite: Andrea Dal Pozzolo, Olivier Caelen, Reid A. Johnson and Gianluca Bontempi. Calibrating Probability with Undersampling for Unbalanced Classification. In Symposium on Computational Intelligence and Data Mining (CIDM), IEEE, 2015
+
+Note:
+Class 0 = Legit transactions
+Class 1 = Fruadulent transactions
+
+```{r eval=FALSE}
+creditcard <- read.csv("creditcard.csv")
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(creditcard, file = "creditcard.RData")
+```
+
+```{r echo=FALSE, eval=FALSE}
+load("creditcard.RData")
+```
+
+```{r warning=FALSE, message=FALSE}
+# configure multicore
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+library(caret)
+```
+
+Owing to such imbalance in data, an algorithm that does no feature analysis and predicts all the transactions as non-frauds will also achieve an accuracy of 99.828%. Hence, accuracy is not a correct measure of efficiency in our case. We need some other measure of correctness while classifying transactions as fraud or non-fraud.
+'Time' feature does not indicate the actual time of the transaction and is more of listing the data in chronological order. So we assume that 'Time' feature has little or no significance in correctly classifying a fraud transaction. Hence, we eliminate this column from further analysis.
+
+```{r eval=FALSE}
+creditcard <- select(creditcard, -Time)
+
+# convert class variable to factor
+creditcard$Class <- factor(creditcard$Class)
+```
+
+```{r eval=FALSE}
+set.seed(42)
+index <- createDataPartition(creditcard$Class, p = 0.7, list = FALSE)
+train_data <- creditcard[index, ]
+test_data  <- creditcard[-index, ]
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(train_data, file = "train_data.RData")
+save(test_data, file = "test_data.RData")
+```
+
+```{r echo=FALSE}
+load("train_data.RData")
+load("test_data.RData")
+```
+
+```{r fig.width=5, fig.height=3}
+train_data %>%
+  ggplot(aes(x = Class)) +
+    geom_bar()
+```
+
+Specificity vs Sensitivity curve: The aim of the plot is to view the cutoff probability at which the sum of the sensitivity(fraud detection accuracy) and specificity(non-fraud detection accuracy) of the model is maximum. This cutoff probability is threshold at which the model is classifying maximum fraud transactions as 'frauds' and non-fraud transactions as 'non-frauds'.
+
+baseline accuracy –> 99.826785 %
+
+consider doing precision/recall as well as sensitivity (recall)/specificity
+
+Credit card fraud identification through anomaly detection algorithm using multivariate Gaussian distribution. There are couple of reasons why I wanted to employ the anomaly detection algorithm over logistic regression or SVM. One, for the anomaly detection algorithm is well suited for highly skewed data like fraud detection and two that it is least biased towards posterior probabilites of the events. Another advantage is that it is relatively easy to train, infact there is not much training at all in this algorithm (other than finding the optimum threshold probability). However, it has to be noted that for the model to work well, the underlying features need to be independent.
+
+
+anomalyDetection: Implementation of Augmented Network Log Anomaly Detection Procedures
+
+https://cran.r-project.org/web/packages/anomalyDetection/vignettes/Introduction.html
+
+```{r}
+library(anomalyDetection)
+```
+
+http://amunategui.github.io/anomaly-detection-h2o/
+
+Autoencoder
+Let’s see how an unsupervised autoencoding can assist us here. Start by initializing an h2o instance and create an H2O frame from the prostate data set:
+
+Deep Learning Autoencoders can be used for both unsupervised pre-training of a supervised deep neural network or for anomaly detection. We will demonstrate these applications using the h2o package below.
+
+From Statistical Learning with Sparsity (Hastie, Tibshirani, Wainwright, 2015) Section 8.2.5: “In the neural network literature, an autoencoder generalizes the idea of principal components.”
+
+Autoencoders for Unsupervised Pre-Training
+On sparse autoencoders (although this can be said of autoencoders in general):
+
+“One important use of the sparse autoencoder is for pretraining. When fitting a supervised neural network to labelled data, it is often advantageous to first fit an autoencoder to the data without the labels and then use the resulting weights as starting values for fitting the supervised neural network (Erhan et al. 2010). Because the neural-network objective function is nonconvex, these starting weights can significantly improve the quality of the final solution. Furthermore, if there is additional data available without labels, the autoencoder can make use of these data in the pretraining phase.”
+
+```{r warning=FALSE, message=FALSE}
+library(h2o)
+h2o.init(nthreads = -1)
+
+train_data_hf <- as.h2o(train_data)
+test_data_hf <- as.h2o(test_data)
+
+response <- "Class"
+features <- setdiff(colnames(train_data_hf), response)
+```
+
+```{r}
+model_nn <- h2o.deeplearning(x = features,
+                             training_frame = train_data_hf,
+                             autoencoder = TRUE,
+                             reproducible = TRUE,
+                             seed = 42,
+                             hidden = c(10, 5, 10), 
+                             epochs = 100)
+```
+
+```{r}
+train_features <- h2o.deepfeatures(model_nn, train_data_hf, layer = 2)
+```
+
+```{r}
+anomaly <- h2o.anomaly(model_nn, test_data_hf, per_feature = TRUE)
+head(anomaly)
+```
+
+https://dzone.com/articles/dive-deep-into-deep-learning-using-h2o-1
+
+```{r}
+test_recon <- h2o.predict(model_nn, test_data_hf)
+```
