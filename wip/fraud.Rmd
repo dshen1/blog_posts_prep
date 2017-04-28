@@ -5,6 +5,15 @@ date: "April 24, 2017"
 output: html_document
 ---
 
+Deep Learning can also be used for unsupervised feature learning or, more
+specifically, nonlinear dimensionality reduction (Hinton et al, 2006).
+
+Based on the diagram of a three-layer neural network with one hidden layer
+below, if our input data is treated as labeled with the same input values, then
+the network is forced to learn the identity via a nonlinear, reduced representation
+of the original data.
+
+
 https://www.kaggle.com/dalpozz/creditcardfraud
 
 The datasets contains transactions made by credit cards in September 2013 by european cardholders. This dataset presents transactions that occurred in two days, where we have 492 frauds out of 284,807 transactions. The dataset is highly unbalanced, the positive class (frauds) account for 0.172% of all transactions.
@@ -30,47 +39,25 @@ save(creditcard, file = "creditcard.RData")
 ```
 
 ```{r echo=FALSE, eval=FALSE}
-load("creditcard.RData")
-```
-
-```{r warning=FALSE, message=FALSE}
-# configure multicore
-library(doParallel)
-cl <- makeCluster(detectCores())
-registerDoParallel(cl)
-
-library(caret)
+load("U:/Github_blog/fraud/creditcard.RData")
 ```
 
 Owing to such imbalance in data, an algorithm that does no feature analysis and predicts all the transactions as non-frauds will also achieve an accuracy of 99.828%. Hence, accuracy is not a correct measure of efficiency in our case. We need some other measure of correctness while classifying transactions as fraud or non-fraud.
 'Time' feature does not indicate the actual time of the transaction and is more of listing the data in chronological order. So we assume that 'Time' feature has little or no significance in correctly classifying a fraud transaction. Hence, we eliminate this column from further analysis.
 
-```{r eval=FALSE}
+```{r }
 creditcard <- select(creditcard, -Time)
 
 # convert class variable to factor
 creditcard$Class <- factor(creditcard$Class)
 ```
 
-```{r eval=FALSE}
-set.seed(42)
-index <- createDataPartition(creditcard$Class, p = 0.7, list = FALSE)
-train_data <- creditcard[index, ]
-test_data  <- creditcard[-index, ]
-```
-
-```{r echo=FALSE, eval=FALSE}
-save(train_data, file = "train_data.RData")
-save(test_data, file = "test_data.RData")
-```
-
-```{r echo=FALSE}
-load("train_data.RData")
-load("test_data.RData")
+```{r}
+library(tidyverse)
 ```
 
 ```{r fig.width=5, fig.height=3}
-train_data %>%
+creditcard %>%
   ggplot(aes(x = Class)) +
     geom_bar()
 ```
@@ -83,14 +70,6 @@ consider doing precision/recall as well as sensitivity (recall)/specificity
 
 Credit card fraud identification through anomaly detection algorithm using multivariate Gaussian distribution. There are couple of reasons why I wanted to employ the anomaly detection algorithm over logistic regression or SVM. One, for the anomaly detection algorithm is well suited for highly skewed data like fraud detection and two that it is least biased towards posterior probabilites of the events. Another advantage is that it is relatively easy to train, infact there is not much training at all in this algorithm (other than finding the optimum threshold probability). However, it has to be noted that for the model to work well, the underlying features need to be independent.
 
-
-anomalyDetection: Implementation of Augmented Network Log Anomaly Detection Procedures
-
-https://cran.r-project.org/web/packages/anomalyDetection/vignettes/Introduction.html
-
-```{r}
-library(anomalyDetection)
-```
 
 http://amunategui.github.io/anomaly-detection-h2o/
 
@@ -110,34 +89,137 @@ On sparse autoencoders (although this can be said of autoencoders in general):
 library(h2o)
 h2o.init(nthreads = -1)
 
-train_data_hf <- as.h2o(train_data)
-test_data_hf <- as.h2o(test_data)
+creditcard_hf <- as.h2o(creditcard)
+```
+
+```{r tidy=FALSE}
+splits <- h2o.splitFrame(creditcard_hf, 
+                         ratios = c(0.4, 0.4), 
+                         seed = 42)
+
+train_unsupervised  <- splits[[1]]
+train_supervised  <- splits[[2]]
+test <- splits[[3]]
 
 response <- "Class"
-features <- setdiff(colnames(train_data_hf), response)
+features <- setdiff(colnames(train_unsupervised), response)
 ```
+
+Deep learning autoencoder
+Now that the data is in H2O we can apply machine learning techniques on the data. One type of analysis that interested me the most is the ability to train autoencoders. The idea is to use the input data to predict the input data by means of a ‘bottle-neck’ network.
+
+Based on the diagram of a three-layer neural network with one hidden layer
+below, if our input data is treated as labeled with the same input values, then
+the network is forced to learn the identity via a nonlinear, reduced representation
+of the original data.
+
+For the deep autoencoder model described above, if enough training data
+resembling some underlying pattern is provided, the network will train itself
+to easily learn the identity when confronted with that pattern. However, if an
+anomalous test point does not match the learned pattern, the autoencoder will
+likely have a high error rate in reconstructing this data, indicating anomalous
+data.
+This framework is used to develop an anomaly detection demonstration using a
+deep autoencoder. The dataset is an ECG time series of heartbeats and the goal
+is to determine which heartbeats are outliers. The training data (20 “good”
+heartbeats) and the test data (training data with 3 “bad” heartbeats appended
+for simplicity) can be downloaded directly into the H2O cluster, as shown below.
+Each row represents a single heartbeat.
 
 ```{r}
 model_nn <- h2o.deeplearning(x = features,
-                             training_frame = train_data_hf,
+                             training_frame = train_unsupervised,
+                             model_id = "model_nn",
                              autoencoder = TRUE,
-                             reproducible = TRUE,
+                             reproducible = TRUE, #slow - turn off for real problems
+                             ignore_const_cols = FALSE,
                              seed = 42,
-                             hidden = c(10, 5, 10), 
-                             epochs = 100)
+                             hidden = c(10, 2, 10), 
+                             epochs = 100,
+                             activation = "Tanh")
+```
+
+The h2o.anomaly function can be used to detect anomalies in a dataset. This function uses an H2O autoencoder model. This function reconstructs the original data set using the model and calculates the Mean Squared Error(MSE) for each data point.
+
+https://htmlpreview.github.io/?https://github.com/ledell/sldm4-h2o/blob/master/sldm4-deeplearning-h2o.html
+
+We can also use a deep learning autoencoder to identify outliers in a dataset. The h2o.anomaly() function computes the per-row reconstruction error for the test data set (passing it through the autoencoder model and computing mean square error (MSE) for each row).
+
+```{r}
+anomaly <- h2o.anomaly(model_nn, test) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column() %>%
+  mutate(Class = as.vector(test[, 30]))
 ```
 
 ```{r}
-train_features <- h2o.deepfeatures(model_nn, train_data_hf, layer = 2)
+ggplot(anomaly, aes(x = as.numeric(rowname), y = Reconstruction.MSE, color = as.factor(Class))) +
+  geom_point()
 ```
 
 ```{r}
-anomaly <- h2o.anomaly(model_nn, test_data_hf, per_feature = TRUE)
-head(anomaly)
+outliers <- anomaly %>%
+  arrange(-Reconstruction.MSE) %>%
+  filter(1:10)
 ```
+
+Convert the test data into its autoencoded representation.
 
 https://dzone.com/articles/dive-deep-into-deep-learning-using-h2o-1
 
 ```{r}
-test_recon <- h2o.predict(model_nn, test_data_hf)
+# Note: Testing = Reconstructing the test dataset
+test_autoenc <- h2o.predict(model_nn, test)
+head(test_autoenc)
 ```
+
+```{r}
+model_nn_2 <- h2o.deeplearning(y = response,
+                               x = features,
+                             training_frame = train_supervised,
+                             pretrained_autoencoder  = "model_nn",
+                             reproducible = TRUE, #slow - turn off for real problems
+                             ignore_const_cols = FALSE,
+                             seed = 42,
+                             hidden = c(10, 2, 10), 
+                             epochs = 100,
+                             activation = "Tanh")
+```
+
+```{r}
+perf <- h2o.performance(model_nn_2, newdata = test)
+h2o.mse(perf)
+```
+
+<br>
+
+Another application of DNNs is dimension reduction – specifically, the projection of the feature space into a non-linear transformation of that space. In H2O, we can use the h2o.deepfeatures() function to extract non-linear features from an H2O data set using an H2O deep learning model. Here, we grab the features from the first hidden layer.
+
+In this case, the performance is not better than using the full feature space. However, there are examples where a reducing the feature space would be beneficial. Alternatively, we could simply adding these non-linear transformations of the original feature space to the original training (and test) set to obtain an expanded set of features.
+
+```{r}
+train_features <- h2o.deepfeatures(model_nn, train_data_hf, layer = 2) %>%
+  as.data.frame() %>%
+  mutate(Class = as.vector(train_data_hf[, 30]))
+
+ggplot(train_features, aes(x = DF.L2.C1, y = DF.L2.C2, color = Class)) +
+  geom_point(alpha = 0.3)
+```
+
+```{r}
+# Now train DRF on reduced feature space, first need to add response back
+train_reduced <- h2o.cbind(train_reduced_x, train_supervised[,y])
+
+rf1 <- h2o.randomForest(x = names(train_reduced_x), y = y, 
+                        training_frame = train_reduced,
+                        ntrees = 100, seed = 1)
+
+#To evaluate the performance on the test set, we also need to project the test set into the reduced feature space.
+
+test_reduced_x <- h2o.deepfeatures(ae_model, test, layer = 1)
+test_reduced <- h2o.cbind(test_reduced_x, test[,y])
+
+rf_perf <- h2o.performance(rf1, newdata = test_reduced)
+h2o.mse(rf_perf)
+```
+
