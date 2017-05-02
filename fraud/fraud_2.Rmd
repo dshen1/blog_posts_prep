@@ -97,7 +97,7 @@ ggplot(anomaly, aes(x = as.numeric(rowname), y = Reconstruction.MSE, color = as.
 
 ```{r}
 anomaly <- anomaly %>%
-  mutate(outlier = ifelse(Reconstruction.MSE > 0.02, "outlier", "no_outlier"))
+  mutate(outlier = ifelse(Reconstruction.MSE > 0.04, "outlier", "no_outlier"))
 
 anomaly %>%
   group_by(Class, outlier) %>%
@@ -161,7 +161,7 @@ pred_thresholds %>%
   group_by(actual, x, y) %>%
   summarise(n = n()) %>%
   ggplot(aes(x = as.numeric(x), y = n, color = actual)) +
-    geom_vline(xintercept = 0.6, alpha = 0.5) +
+    geom_vline(xintercept = 0.7, alpha = 0.5) +
     geom_line() +
     geom_point(alpha = 0.5) +
     theme_bw() +
@@ -173,7 +173,7 @@ pred_thresholds %>%
 
 ```{r}
 pred %>%
-  mutate(predict = ifelse(pred$p1 > 0.6, 1, 0)) %>%
+  mutate(predict = ifelse(pred$p1 > 0.7, 1, 0)) %>%
   group_by(actual, predict) %>%
   summarise(n = n()) %>%
   mutate(freq = n / sum(n)) 
