@@ -1,0 +1,62 @@
+---
+title: "GoT"
+author: "Dr. Shirin Glander"
+date: "May 3, 2017"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+https://www.kaggle.com/mylesoneill/game-of-thrones
+
+https://cran.r-project.org/web/packages/circlize/vignettes/circlize.pdf
+
+```{r}
+battles <- read.csv("battles.csv")
+```
+
+```{r}
+deaths <- read.csv("character-deaths.csv")
+```
+
+```{r}
+predictions <- read.csv("character-predictions.csv")
+```
+
+```{r}
+predictions_2 <- predictions[, c(6, 12, 13)] %>%
+  mutate(name = as.character(name),
+         mother = as.character(mother),
+         father = as.character(father)) %>%
+  filter(mother != "" & father != "")
+
+net <- data.frame(source = c(predictions_2$mother, predictions_2$father),
+                  target = c(predictions_2$name, predictions_2$name),
+                  type = c(rep("mother", nrow(predictions_2)), rep("father", nrow(predictions_2))))
+net$num <- ifelse(net$type == "mother", 1, 0)
+
+characters <- data.frame(name = unique(c(as.character(net$source), as.character(net$target)))) %>%
+  left_join(predictions, by = "name")
+
+characters[characters == ""] <- NA
+```
+
+```{r fig.width=15, fig.height=8, warning=FALSE, message=FALSE}
+library(ggraph)
+library(igraph)
+
+graph <- graph_from_data_frame(net, directed = TRUE, vertices = characters)
+
+ggraph(graph, layout = 'gem') + 
+    geom_edge_link(aes(color = type), 
+                   arrow = arrow(length = unit(4, 'mm')), 
+                   end_cap = circle(3, 'mm')) + 
+    geom_node_point(aes(size = popularity, color = house)) + 
+    geom_node_text(aes(label = name), repel = TRUE, size = 3) +
+    theme_graph(foreground = NA, fg_text_colour = 'white')
+```
+
+
+
