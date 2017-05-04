@@ -5,8 +5,9 @@ date: "May 3, 2017"
 output: html_document
 ---
 
-```{r}
+```{r warning=FALSE, message=FALSE}
 library(tidyverse)
+library(ggthemes)
 ```
 
 https://www.kaggle.com/mylesoneill/game-of-thrones
@@ -32,31 +33,194 @@ predictions_2 <- predictions[, c(6, 12, 13)] %>%
          father = as.character(father)) %>%
   filter(mother != "" & father != "")
 
-net <- data.frame(source = c(predictions_2$mother, predictions_2$father),
+net1 <- data.frame(source = c(predictions_2$mother, predictions_2$father),
                   target = c(predictions_2$name, predictions_2$name),
                   type = c(rep("mother", nrow(predictions_2)), rep("father", nrow(predictions_2))))
-net$num <- ifelse(net$type == "mother", 1, 0)
+```
 
+```{r eval=FALSE}
+library(rvest)
+
+url <- "http://gameofthrones.wikia.com/wiki/Category:Major_Characters?display=page&sort=mostvisited"
+main.page <- read_html(url)
+
+names <- main.page %>% # feed `main.page` to the next step
+  html_nodes(".mw-content-ltr") %>%
+  .[3] %>%
+  html_text()
+
+names <- strsplit(names, split = "\n")[[1]] %>%
+  .[-c(1, 10, 19)]
+names <- gsub("[[:upper:]]$", "", names)
+names <- gsub(" ", "_", names)
+
+
+library(RCurl)
+
+for (name in names) {
+  url <- paste0("http://gameofthrones.wikia.com/wiki/", name)
+
+  web_page <- readLines(url)
+  left <- web_page[grep("pi-data-label pi-secondary-font", web_page)]
+  left <- gsub("\t\t<h3 class=\"pi-data-label pi-secondary-font\">|</h3>", "", left)
+  right <- web_page[grep("pi-data-value pi-font", web_page)]
+  right <- gsub("(.*title=\")(.*)(\">.*)", "\\2", right)
+  
+  df <- data.frame(name = name, attr = right, type = left)
+  
+  if (name == names[1]) {
+    df_final <- df
+  } else {
+    df_final <- rbind(df_final, df)
+  }
+}
+
+df_final_major <- df_final
+```
+
+```{r eval=FALSE}
+url <- "http://gameofthrones.wikia.com/wiki/Category:Minor_Characters?display=page&sort=mostvisited"
+main.page <- read_html(url)
+
+names <- main.page %>% # feed `main.page` to the next step
+  html_nodes(".mw-content-ltr") %>%
+  .[2] %>%
+  html_text()
+
+names <- strsplit(names, split = "\n")[[1]] %>%
+  .[-c(1, 10, 19)]
+names <- gsub("[[:upper:]]$", "", names)
+names <- gsub(" ", "_", names)
+names <- names[!grepl("_cont\\.", names)]
+
+for (name in names) {
+  url <- paste0("http://gameofthrones.wikia.com/wiki/", name)
+
+  web_page <- readLines(url)
+  left <- web_page[grep("pi-data-label pi-secondary-font", web_page)]
+  left <- gsub("\t\t<h3 class=\"pi-data-label pi-secondary-font\">|</h3>", "", left)
+  right <- web_page[grep("pi-data-value pi-font", web_page)]
+  right <- gsub("(.*title=\")(.*)(\">.*)", "\\2", right)
+  
+  if (length(right) > 0) {
+    df <- data.frame(name = name, attr = right, type = left)
+  } else {
+    df <- data.frame(name = name, attr = NA, type = NA)
+  }
+  
+  if (name == names[1]) {
+    df_final <- df
+  } else {
+    df_final <- rbind(df_final, df)
+  }
+}
+
+df_final_minor_1 <- df_final
+```
+
+```{r eval=FALSE}
+url <- "http://gameofthrones.wikia.com/wiki/Category:Minor_Characters?display=page&sort=mostvisited&pagefrom=Mully#mw-pages"
+main.page <- read_html(url)
+
+names <- main.page %>% # feed `main.page` to the next step
+  html_nodes(".mw-content-ltr") %>%
+  .[2] %>%
+  html_text()
+
+names <- strsplit(names, split = "\n")[[1]] %>%
+  .[-c(1, 10, 19)]
+names <- gsub("[[:upper:]]$", "", names)
+names <- gsub(" ", "_", names)
+names <- names[!grepl("_cont\\.", names)]
+
+for (name in names) {
+  url <- paste0("http://gameofthrones.wikia.com/wiki/", name)
+
+  web_page <- readLines(url)
+  left <- web_page[grep("pi-data-label pi-secondary-font", web_page)]
+  left <- gsub("\t\t<h3 class=\"pi-data-label pi-secondary-font\">|</h3>", "", left)
+  right <- web_page[grep("pi-data-value pi-font", web_page)]
+  right <- gsub("(.*title=\")(.*)(\">.*)", "\\2", right)
+  
+  if (length(right) > 0) {
+    df <- data.frame(name = name, attr = right, type = left)
+  } else {
+    df <- data.frame(name = name, attr = NA, type = NA)
+  }
+  
+  if (name == names[1]) {
+    df_final <- df
+  } else {
+    df_final <- rbind(df_final, df)
+  }
+}
+
+df_final_minor_2 <- df_final
+```
+
+```{r eval=FALSE}
+df_final <- rbind(df_final_major,
+                  df_final_minor_1,
+                  df_final_minor_2)
+
+df_final[grep("Arya", df_final$name), ]
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(df_final, file = "df_final.RData")
+```
+
+```{r echo=FALSE}
+load("df_final.RData")
+```
+
+```{r}
+df_final$type <- as.character(df_final$type)
+fathers <- filter(df_final, type == "Father") %>%
+  mutate(name = gsub("_", " ", name))
+mothers <- filter(df_final, type == "Mother") %>%
+  mutate(attr = gsub("\t<div class=\"pi-data-value pi-font\">|</div>|\" class=\"mw-redirect", "", attr),
+         name = gsub("_", " ", name))
+
+net2 <- data.frame(source = c(mothers$attr, as.character(fathers$attr)),
+                  target = c(mothers$name, fathers$name),
+                  type = c(rep("mother", nrow(mothers)), rep("father", nrow(fathers))))
+```
+
+```{r}
+net <- rbind(net1, net2)
+net <- net[!duplicated(net), ]
+```
+
+```{r}
+predictions$name <- as.character(predictions$name)
 characters <- data.frame(name = unique(c(as.character(net$source), as.character(net$target)))) %>%
+  mutate(name = as.character(name)) %>%
   left_join(predictions, by = "name")
 
 characters[characters == ""] <- NA
+characters$popularity[is.na(characters$popularity)] <- 0
 ```
 
-```{r fig.width=15, fig.height=8, warning=FALSE, message=FALSE}
+```{r fig.width=50, fig.height=25, warning=FALSE, message=FALSE}
 library(ggraph)
 library(igraph)
 
 graph <- graph_from_data_frame(net, directed = TRUE, vertices = characters)
 
 ggraph(graph, layout = 'gem') + 
-    geom_edge_link(aes(color = type), 
-                   arrow = arrow(length = unit(4, 'mm')), 
-                   end_cap = circle(3, 'mm')) + 
-    geom_node_point(aes(size = popularity, color = house)) + 
-    geom_node_text(aes(label = name), repel = TRUE, size = 3) +
-    theme_graph(foreground = NA, fg_text_colour = 'white')
+  geom_edge_link(aes(color = type), 
+                 arrow = arrow(length = unit(4, 'mm')), 
+                 end_cap = circle(3, 'mm')) + 
+  geom_node_point(aes(size = popularity, color = house)) + 
+  geom_node_text(aes(label = name), repel = TRUE, size = 3) +
+  theme_map() +
+  theme(legend.position = "top")
+
+ggsave("family_tree.pdf", dpi = 500, limitsize = FALSE)
 ```
+
+
 
 
 
