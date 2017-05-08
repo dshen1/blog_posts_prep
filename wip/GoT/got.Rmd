@@ -798,6 +798,11 @@ characters$shape <- ifelse(characters$male == 1, "square",
 characters$shape[is.na(characters$shape)] <- "none"
 ```
 
+```{r echo=FALSE, eval=FALSE}
+save(colors_edges, file = "colors_edges.RData")
+save(color_vertices, file = "color_vertices.RData")
+```
+
 ```{r warning=FALSE, message=FALSE}
 library(igraph)
 ```
@@ -821,6 +826,10 @@ characters_Stark <- characters %>%
   arrange(name)
 
 graph_Stark <- graph_from_data_frame(net_Stark, directed = TRUE, vertices = characters_Stark)
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(graph_Stark, file = "graph_Stark.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -863,6 +872,10 @@ characters_Lannister <- characters %>%
 graph_Lannister <- graph_from_data_frame(net_Lannister, directed = TRUE, vertices = characters_Lannister)
 ```
 
+```{r echo=FALSE, eval=FALSE}
+save(graph_Lannister, file = "graph_Lannister.RData")
+```
+
 ```{r fig.width=20, fig.height=10}
 pdf("family_tree_Lannister.pdf", width = 20, height = 15)
 plot(graph_Lannister,
@@ -901,6 +914,10 @@ characters_Baratheon <- characters %>%
   arrange(name)
 
 graph_Baratheon <- graph_from_data_frame(net_Baratheon, directed = TRUE, vertices = characters_Baratheon)
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(graph_Baratheon, file = "graph_Baratheon.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -942,6 +959,10 @@ characters_Targaryen <- characters %>%
 graph_Targaryen <- graph_from_data_frame(net_Targaryen, directed = TRUE, vertices = characters_Targaryen)
 ```
 
+```{r echo=FALSE, eval=FALSE}
+save(graph_Targaryen, file = "graph_Targaryen.RData")
+```
+
 ```{r fig.width=20, fig.height=10}
 pdf("family_tree_Targaryen.pdf", width = 20, height = 15)
 plot(graph_Targaryen,
@@ -978,6 +999,10 @@ characters_Tyrell <- characters %>%
   arrange(name)
 
 graph_Tyrell <- graph_from_data_frame(net_Tyrell, directed = TRUE, vertices = characters_Tyrell)
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(graph_Tyrell, file = "graph_Tyrell.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -1021,6 +1046,10 @@ characters_Martell <- characters %>%
 graph_Martell <- graph_from_data_frame(net_Martell, directed = TRUE, vertices = characters_Martell)
 ```
 
+```{r echo=FALSE, eval=FALSE}
+save(graph_Martell, file = "graph_Martell.RData")
+```
+
 ```{r fig.width=20, fig.height=10}
 pdf("family_tree_Martell.pdf", width = 20, height = 15)
 plot(graph_Martell,
@@ -1059,6 +1088,10 @@ characters_Tully <- characters %>%
   arrange(name)
 
 graph_Tully <- graph_from_data_frame(net_Tully, directed = TRUE, vertices = characters_Tully)
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(graph_Tully, file = "graph_Tully.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -1103,6 +1136,10 @@ characters_Arryn <- characters %>%
 graph_Arryn <- graph_from_data_frame(net_Arryn, directed = TRUE, vertices = characters_Arryn)
 ```
 
+```{r echo=FALSE, eval=FALSE}
+save(graph_Arryn, file = "graph_Arryn.RData")
+```
+
 ```{r fig.width=20, fig.height=10}
 pdf("family_tree_Arryn.pdf", width = 20, height = 15)
 plot(graph_Arryn,
@@ -1138,6 +1175,10 @@ characters_Frey <- characters %>%
   arrange(name)
 
 graph_Frey <- graph_from_data_frame(net_Frey, directed = TRUE, vertices = characters_Frey)
+```
+
+```{r echo=FALSE, eval=FALSE}
+save(graph_Frey, file = "graph_Frey.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}

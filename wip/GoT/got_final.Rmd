@@ -1,0 +1,83 @@
+---
+title: "got"
+author: "Dr. Shirin Glander"
+date: "May 8, 2017"
+output: html_document
+---
+
+```{r warning=FALSE, message=FALSE}
+library(igraph)
+```
+
+```{r echo=FALSE}
+load("graph_Stark.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Lannister.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Baratheon.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Targaryen.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Tyrell.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Martell.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Tully.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Arryn.RData")
+```
+
+```{r echo=FALSE}
+load("graph_Martell.RData")
+```
+
+```{r}
+graph_Stark_df <- as_data_frame(graph_Stark, what = "both")
+graph_Lannister_df <- as_data_frame(graph_Lannister, what = "both")
+
+graph_union_df_e <- rbind(graph_Stark_df$edges, graph_Lannister_df$edges) %>%
+  .[!duplicated(.), ]
+
+graph_union_df_v <- rbind(graph_Stark_df$vertices, graph_Lannister_df$vertices) %>%
+  .[!duplicated(.), ]
+
+union_graph <- graph_from_data_frame(graph_union_df_e, directed = TRUE, vertices = graph_union_df_v)
+```
+
+```{r echo=FALSE}
+load("colors_edges.RData")
+load("color_vertices.RData")
+```
+
+```{r fig.width=20, fig.height=10}
+plot(union_graph,
+     layout = layout_with_lgl,
+     vertex.label = gsub(" ", "\n", V(union_graph)$name),
+     vertex.shape = V(union_graph)$shape,
+     vertex.color = V(union_graph)$color, 
+     vertex.size = (V(union_graph)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.mode = E(union_graph)$arrow,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph)$color,
+     edge.lty = E(union_graph)$lty)
+legend("topleft", legend = c(as.character(color_vertices$house), as.character(colors_edges$type)), pch = 19,
+       col = c(color_vertices$color, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+#dev.off()
+```
