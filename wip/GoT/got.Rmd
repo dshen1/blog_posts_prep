@@ -400,8 +400,32 @@ predictions[predictions$name == "Bryan Frey", "mother"] <- "Deana Hardyng"
 predictions[predictions$name == "Walda Frey daughter of Walton", "father"] <- "Walton Frey"
 predictions[predictions$name == "Walda Frey daughter of Walton", "mother"] <- "Deana Hardyng"
 
+predictions[predictions$name == "Harlon Greyjoy", "father"] <- "Quellon Greyjoy"
+predictions[predictions$name == "Harlon Greyjoy", "mother"] <- "Lady of House Stonetree"
+
+predictions[predictions$name == "Quenton Greyjoy", "father"] <- "Quellon Greyjoy"
+predictions[predictions$name == "Quenton Greyjoy", "mother"] <- "Lady of House Stonetree"
+
+predictions[predictions$name == "Donel Greyjoy", "father"] <- "Quellon Greyjoy"
+predictions[predictions$name == "Donel Greyjoy", "mother"] <- "Lady of House Stonetree"
+
+predictions[predictions$name == "Rodrik Greyjoy", "father"] <- "Balon Greyjoy"
+predictions[predictions$name == "Rodrik Greyjoy", "mother"] <- "Alannys Harlaw"
+
+predictions[predictions$name == "Maron Greyjoy", "father"] <- "Balon Greyjoy"
+predictions[predictions$name == "Maron Greyjoy", "mother"] <- "Alannys Harlaw"
+
+predictions[predictions$name == "Urrigon Greyjoy", "father"] <- "Quellon Greyjoy"
+predictions[predictions$name == "Urrigon Greyjoy", "mother"] <- "Lady of House Sunderly"
+
+predictions[predictions$name == "Aeron Greyjoy", "father"] <- "Quellon Greyjoy"
+predictions[predictions$name == "Aeron Greyjoy", "mother"] <- "Lady of House Sunderly"
+
+predictions[predictions$name == "Robin Greyjoy", "father"] <- "Quellon Greyjoy"
+predictions[predictions$name == "Robin Greyjoy", "mother"] <- "Lady of House Piper"
+
 predictions[, c(6, 12:13, 15, 34)] %>% arrange(name)
-predictions[grep("Walda", predictions$name), c(6, 12:13, 15, 34)] %>% arrange(name)
+predictions[grep("Robin Greyjoy", predictions$name), c(6, 12:13, 15, 34)] %>% arrange(name)
 ```
 
 http://awoiaf.westeros.org/index.php/Rodwell_Stark
@@ -471,8 +495,18 @@ add <- predictions[predictions$name == "Lysa Arryn", ]
 add[, "spouse"] <- "Petyr Baelish"
 predictions <- rbind(predictions, add)
 
+predictions[predictions$name == "Quellon Greyjoy", "spouse"] <- "Lady of House Stonetree"
+
+add <- predictions[predictions$name == "Quellon Greyjoy", ]
+add[, "spouse"] <- "Lady of House Sunderly"
+predictions <- rbind(predictions, add)
+
+add <- predictions[predictions$name == "Quellon Greyjoy", ]
+add[, "spouse"] <- "Lady of House Piper"
+predictions <- rbind(predictions, add)
+
 predictions[, c(6, 15:16)] %>% arrange(name)
-predictions[grep("Walton", predictions$name), c(6, 15:16)] %>% arrange(name)
+predictions[grep("Quellon", predictions$name), c(6, 15:16)] %>% arrange(name)
 ```
 
 ```{r}
@@ -770,7 +804,7 @@ characters[grep("Targaryen", characters$house), "house"] <- "House Targaryen"
 characters[characters$name == "Rickon Stark son of Benjen", "house"] <- "House Stark"
 characters[characters$name == "Drogo", "house"] <- "Dothraki"
 
-characters$house2 <- ifelse(characters$house %in% c("House Targaryen", "House Stark", "House Tully", "House Lannister", "House Baratheon", "House Tyrell", "House Martell", "House Frey"), characters$house, NA)
+characters$house2 <- ifelse(characters$house %in% c("House Targaryen", "House Stark", "House Tully", "House Lannister", "House Baratheon", "House Tyrell", "House Martell", "House Frey", "House Greyjoy"), characters$house, NA)
 ```
 
 ```{r warning=FALSE, message=FALSE}
@@ -798,11 +832,6 @@ characters$shape <- ifelse(characters$male == 1, "square",
 characters$shape[is.na(characters$shape)] <- "none"
 ```
 
-```{r echo=FALSE, eval=FALSE}
-save(colors_edges, file = "colors_edges.RData")
-save(color_vertices, file = "color_vertices.RData")
-```
-
 ```{r warning=FALSE, message=FALSE}
 library(igraph)
 ```
@@ -813,6 +842,8 @@ characters_Stark <- characters %>%
 
 net_Stark <- net %>%
   filter(source %in% characters_Stark$name | target %in% characters_Stark$name)
+
+net_Stark <- net_Stark[net_Stark$source != "Unnamed mother", ]
 
 net_Stark$lty <- ifelse(net_Stark$source == "Lyanna Stark" & net_Stark$target == "Jon Snow", "dotted", "solid")
 net_Stark$lty <- ifelse(net_Stark$source == "Sansa Stark" & net_Stark$target == "Ramsay Bolton", "dotted", net_Stark$lty)
@@ -826,10 +857,6 @@ characters_Stark <- characters %>%
   arrange(name)
 
 graph_Stark <- graph_from_data_frame(net_Stark, directed = TRUE, vertices = characters_Stark)
-```
-
-```{r echo=FALSE, eval=FALSE}
-save(graph_Stark, file = "graph_Stark.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -862,6 +889,7 @@ net_Lannister <- net %>%
 
 net_Lannister$lty <- ifelse(net_Lannister$source == "Jaime Lannister" & net_Lannister$type == "father/mother", "dotted", "solid")
 net_Lannister$type <- ifelse(net_Lannister$source == "Jaime Lannister" & net_Lannister$type == "father/mother", "father", net_Lannister$type)
+net_Lannister[net_Lannister$source == "Jaime Lannister" & net_Lannister$type == "father", "color"] <- "#1B9E77"
 
 net_Lannister$arrow <- ifelse(net_Lannister$type == "spouse", 3, 2)
 
@@ -870,10 +898,6 @@ characters_Lannister <- characters %>%
   arrange(name)
 
 graph_Lannister <- graph_from_data_frame(net_Lannister, directed = TRUE, vertices = characters_Lannister)
-```
-
-```{r echo=FALSE, eval=FALSE}
-save(graph_Lannister, file = "graph_Lannister.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -906,6 +930,7 @@ net_Baratheon <- net %>%
 
 net_Baratheon$lty <- ifelse(net_Baratheon$source == "Jaime Lannister" & net_Baratheon$type == "father/mother", "dotted", "solid")
 net_Baratheon$type <- ifelse(net_Baratheon$source == "Jaime Lannister" & net_Baratheon$type == "father/mother", "father", net_Baratheon$type)
+net_Baratheon[net_Baratheon$source == "Jaime Lannister" & net_Baratheon$type == "father", "color"] <- "#1B9E77"
 
 net_Baratheon$arrow <- ifelse(net_Baratheon$type == "spouse", 3, 2)
 
@@ -914,10 +939,6 @@ characters_Baratheon <- characters %>%
   arrange(name)
 
 graph_Baratheon <- graph_from_data_frame(net_Baratheon, directed = TRUE, vertices = characters_Baratheon)
-```
-
-```{r echo=FALSE, eval=FALSE}
-save(graph_Baratheon, file = "graph_Baratheon.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -959,10 +980,6 @@ characters_Targaryen <- characters %>%
 graph_Targaryen <- graph_from_data_frame(net_Targaryen, directed = TRUE, vertices = characters_Targaryen)
 ```
 
-```{r echo=FALSE, eval=FALSE}
-save(graph_Targaryen, file = "graph_Targaryen.RData")
-```
-
 ```{r fig.width=20, fig.height=10}
 pdf("family_tree_Targaryen.pdf", width = 20, height = 15)
 plot(graph_Targaryen,
@@ -999,10 +1016,6 @@ characters_Tyrell <- characters %>%
   arrange(name)
 
 graph_Tyrell <- graph_from_data_frame(net_Tyrell, directed = TRUE, vertices = characters_Tyrell)
-```
-
-```{r echo=FALSE, eval=FALSE}
-save(graph_Tyrell, file = "graph_Tyrell.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -1046,10 +1059,6 @@ characters_Martell <- characters %>%
 graph_Martell <- graph_from_data_frame(net_Martell, directed = TRUE, vertices = characters_Martell)
 ```
 
-```{r echo=FALSE, eval=FALSE}
-save(graph_Martell, file = "graph_Martell.RData")
-```
-
 ```{r fig.width=20, fig.height=10}
 pdf("family_tree_Martell.pdf", width = 20, height = 15)
 plot(graph_Martell,
@@ -1088,10 +1097,6 @@ characters_Tully <- characters %>%
   arrange(name)
 
 graph_Tully <- graph_from_data_frame(net_Tully, directed = TRUE, vertices = characters_Tully)
-```
-
-```{r echo=FALSE, eval=FALSE}
-save(graph_Tully, file = "graph_Tully.RData")
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -1136,10 +1141,6 @@ characters_Arryn <- characters %>%
 graph_Arryn <- graph_from_data_frame(net_Arryn, directed = TRUE, vertices = characters_Arryn)
 ```
 
-```{r echo=FALSE, eval=FALSE}
-save(graph_Arryn, file = "graph_Arryn.RData")
-```
-
 ```{r fig.width=20, fig.height=10}
 pdf("family_tree_Arryn.pdf", width = 20, height = 15)
 plot(graph_Arryn,
@@ -1155,6 +1156,46 @@ plot(graph_Arryn,
      edge.arrow.size = 0.5,
      edge.color = E(graph_Arryn)$color,
      edge.lty = E(graph_Arryn)$lty)
+legend("topleft", legend = c(as.character(color_vertices$house), as.character(colors_edges$type)), pch = 19,
+       col = c(color_vertices$color, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+dev.off()
+```
+
+```{r fig.width=20, fig.height=10}
+characters_Greyjoy <- characters %>%
+  filter(house == "House Greyjoy")
+
+net_Greyjoy <- net %>%
+  filter(source %in% characters_Greyjoy$name | target %in% characters_Greyjoy$name)
+
+net_Greyjoy$lty <- ifelse(net_Greyjoy$target == "Erik Ironmaker" | net_Greyjoy$source == "Erik Ironmaker", "dotted", "solid")
+net_Greyjoy$arrow <- ifelse(net_Greyjoy$type == "spouse", 3, 2)
+
+characters_Greyjoy <- characters %>%
+  filter(name %in% net_Greyjoy$source | name %in% net_Greyjoy$target) %>%
+  arrange(name)
+
+characters_Greyjoy[characters_Greyjoy$name == "Asha Greyjoy", "name"] <- "Asha (Yara) Greyjoy"
+net_Greyjoy[net_Greyjoy == "Asha Greyjoy"] <- "Asha (Yara) Greyjoy"
+
+graph_Greyjoy <- graph_from_data_frame(net_Greyjoy, directed = TRUE, vertices = characters_Greyjoy)
+```
+
+```{r fig.width=20, fig.height=10}
+pdf("family_tree_Greyjoy.pdf", width = 20, height = 15)
+plot(graph_Greyjoy,
+     layout = layout_with_lgl,
+     vertex.label = gsub(" ", "\n", V(graph_Greyjoy)$name),
+     vertex.shape = V(graph_Greyjoy)$shape,
+     vertex.color = V(graph_Greyjoy)$color, 
+     vertex.size = (V(graph_Greyjoy)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.mode = E(graph_Greyjoy)$arrow,
+     edge.arrow.size = 0.5,
+     edge.color = E(graph_Greyjoy)$color,
+     edge.lty = E(graph_Greyjoy)$lty)
 legend("topleft", legend = c(as.character(color_vertices$house), as.character(colors_edges$type)), pch = 19,
        col = c(color_vertices$color, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
 dev.off()
@@ -1199,6 +1240,33 @@ plot(graph_Frey,
 legend("topleft", legend = c(as.character(color_vertices$house), as.character(colors_edges$type)), pch = 19,
        col = c(color_vertices$color, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
 dev.off()
+```
+
+```{r}
+union_edges <- rbind(net_Arryn, 
+                     net_Baratheon,
+                     net_Greyjoy,
+                     net_Lannister,
+                     net_Martell,
+                     net_Stark,
+                     net_Targaryen,
+                     net_Tully,
+                     net_Tyrell) %>%
+  .[!duplicated(.), ]
+
+union_characters <- rbind(characters_Arryn, 
+                          characters_Baratheon,
+                          characters_Greyjoy,
+                          characters_Lannister,
+                          characters_Martell,
+                          characters_Stark,
+                          characters_Targaryen,
+                          characters_Tully,
+                          characters_Tyrell) %>%
+  .[!duplicated(.), ]
+
+save(union_edges, file = "union_edges.RData")
+save(union_characters, file = "union_characters.RData")
 ```
 
 ```{r fig.width=20, fig.height=10, echo=FALSE, eval=FALSE}

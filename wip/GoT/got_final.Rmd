@@ -5,67 +5,42 @@ date: "May 8, 2017"
 output: html_document
 ---
 
+http://econometricsense.blogspot.de/2012/04/introduction-to-social-network-analysis.html
+
+With the rise in the use of social media, data related to social networks is ripe for analysis using techniques from social network analysis and graph theory. According to International Network for Social Network Analysis, ‘Social network analysis is focused on uncovering the patterning of people's interaction’.
+
+Social network analysis (SNA) allows us to answer questions such as who are key  actors in a network? Who are the most influential members of a network? Who seems to be acting on the peripheral? Which connections in the network are most important?  Are there key players bridging connections or information between otherwise disconnected groups? Have policies or other forces changed the overall dynamics/interaction between people in the network (i.e. has the network structure changed in any meaningful way) and does that relate to some other performance outcome or goal?
+
+A network can be thought of in terms of graph theory as a set of vertices connected by ties. The vertices can include individuals, teams, government agencies, organizations, facebook group members, topics, patents,etc.  (Coulon,2005).  The ties, represented as lines connecting the vertices are referred to as ‘edges.’  Edges therefore indicate the connections between individuals, organizations etc.  Vertices and connections can be represented by what’s referred to as an adjacency matrix ‘A’, where Aij = 1 if there is an edge between vertices ‘i’ and ‘j’, and Aij = 0 otherwise.  Adjacency matrices are symmetric, in that Aij= Aji.  
+
+http://econometricsense.blogspot.de/2012/04/using-sna-in-predictive-modeling.html
+
 ```{r warning=FALSE, message=FALSE}
 library(igraph)
 ```
 
-```{r echo=FALSE}
-load("graph_Stark.RData")
-```
+```{r}
+load("union_edges.RData")
+load("union_characters.RData")
 
-```{r echo=FALSE}
-load("graph_Lannister.RData")
-```
-
-```{r echo=FALSE}
-load("graph_Baratheon.RData")
-```
-
-```{r echo=FALSE}
-load("graph_Targaryen.RData")
-```
-
-```{r echo=FALSE}
-load("graph_Tyrell.RData")
-```
-
-```{r echo=FALSE}
-load("graph_Martell.RData")
-```
-
-```{r echo=FALSE}
-load("graph_Tully.RData")
-```
-
-```{r echo=FALSE}
-load("graph_Arryn.RData")
-```
-
-```{r echo=FALSE}
-load("graph_Martell.RData")
+union_graph <- graph_from_data_frame(union_edges, directed = TRUE, vertices = union_characters)
 ```
 
 ```{r}
-graph_Stark_df <- as_data_frame(graph_Stark, what = "both")
-graph_Lannister_df <- as_data_frame(graph_Lannister, what = "both")
+color_vertices <- union_characters %>%
+  group_by(house, color) %>%
+  summarise(n = n()) %>%
+  filter(!is.na(color))
 
-graph_union_df_e <- rbind(graph_Stark_df$edges, graph_Lannister_df$edges) %>%
-  .[!duplicated(.), ]
-
-graph_union_df_v <- rbind(graph_Stark_df$vertices, graph_Lannister_df$vertices) %>%
-  .[!duplicated(.), ]
-
-union_graph <- graph_from_data_frame(graph_union_df_e, directed = TRUE, vertices = graph_union_df_v)
+colors_edges <- union_edges %>%
+  group_by(type, color) %>%
+  summarise(n = n()) %>%
+  filter(!is.na(color))
 ```
 
-```{r echo=FALSE}
-load("colors_edges.RData")
-load("color_vertices.RData")
-```
-
-```{r fig.width=20, fig.height=10}
+```{r fig.width=35, fig.height=35}
+#pdf("family_tree_GoT.pdf", width = 35, height = 35)
 plot(union_graph,
-     layout = layout_with_lgl,
      vertex.label = gsub(" ", "\n", V(union_graph)$name),
      vertex.shape = V(union_graph)$shape,
      vertex.color = V(union_graph)$color, 
@@ -77,7 +52,61 @@ plot(union_graph,
      edge.arrow.size = 0.5,
      edge.color = E(union_graph)$color,
      edge.lty = E(union_graph)$lty)
-legend("topleft", legend = c(as.character(color_vertices$house), as.character(colors_edges$type)), pch = 19,
-       col = c(color_vertices$color, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
 #dev.off()
 ```
+
+Of interest is to use this mathematical representation of a network to quantify information that can be used to identify what we might call ‘key players’ in a network.  These measures include ‘betweenness’, ‘degree centrality’ and ‘eigenvector centrality.’ 
+
+Betweenness is the number of shortest paths an actor is on (Conway, 2009).  For example, in the network depicted above, vertex 1 is on a path between 2 and 4 and another path between 3 and 4. Betweenness for vertex 1 is then equal to 2. There is another path between 2 and 4 via vertex 3, but it is not the shortest path, so it does not count. Similarly, 2 is on a path between 1 and 3, but its not as short as the direct path between 1 and 3.  Therefore, betweenness for the other vertices is zero, because all other vertices are at the end of a path, and are not on any of the shortest paths between vertices.
+
+Degree Centrality is simply the number of connections (or edges) a vertex has to other vertices. Its clear from counting that #1’s degree centrality is 3, while vertex #4 has a measure of degree centrality equal to 1.
+
+Eigenvector Centrality is a measure that reflects the fact that  not all connections are equal, and in fact, connections to people that are more influential are more important (Newman, 2012).  Mathematically, the measure of eigenvector centrality is derived from the weights that consist of the values from the leading eigenvector  (the eigenvector associated with the largest eigenvalue) of the adjacency matrix depicting the network.
+
+Recall, the value λ is an eigenvalue (or vector of eigenvalues) of the matrix A, and x is an eigenvector of A if the following equation holds:
+
+λ x = A x
+
+So, for the network depicted above, the centrality measures for each vertex = 1,2,3,4 can be derived from the components (x1,x2,x3,x4) that comprise the eigenvector x.
+Eigenvectors and eigenvalues can be derived by solving:
+
+(A-λ I)x = 0
+Fortunately, the adjacency matrix A can be specified in a matrix programming environment (like SAS or  R) and the values for λ and x can be easily calculated.
+
+The absolute values are proportional to the measures of eigenvector centrality for each vertex in the network.
+
+One way to identify key actors in a network is to compare relative values of centrality such as eigenvector centrality and betweenness. Its apparent that many measures of centrality are correlated (Valente et al, 2010). If we assume a linear relationship between eigenvector centrality and betweeness and regress betweeness on eigenvector centrality, the residuals can be used to identify key players (Conway, 2009).   A vertex or individual with higher levels of betweenness and lower EV centrality may be a ‘critical gatekeeper  or an individual that is central to the functioning of the network. Someone with lower levels of betweeness and higher EV centrality may have unique access to other individuals that are key to the functioning of the network (Conway, 2009).
+
+Based on the code provide by Conway,  the igraph and ggplot packages in R can be used to create a plot that visualizes each vertex’s relative value of EV centrality and betweeness, scaled by the value of the regression residual.  
+
+Centrality measures for each individual could easily be exported and incorporated into other analytic applications such as predictive modeling. Snapshots of network metrics, as well as network structure could be examined over time to evaluate policy impacts. These basic tools are only the beginning of possibilities for applications of SNA. 
+
+– Avg. degree: the number of edges/connections attached to a node
+– Network diameter: The longest path between the nodes in the graph
+– Average path length: In how many steps (on avg) can one can reach any node from any other node in the graph
+– Degree power law: The higher this number, the more unequal is the distribution of connections within the network, which means that some nodes are very well-connected and some are not at all
+– Average clustering coefficient: Shows how well the nodes are embedded in their neighborhood i.e. is there a “small world” effect within the network
+– Modularity: The higher this parameter, the more defined are the communities within the network. A result of 0.4 or more is usually considered meaningful
+– Betweenness centrality was calculated for each node, which shows how often the node appears on the shortest path between any two random nodes in the network. The higher this parameter, the more influential the node is. The nodes which have high betweenness centrality are not necessarily the ones that have the most connections and don’t have to be the most “popular” ones Here’s a video of Gephi features (older version)
+
+I was also able to discover interesting patterns in the data, like the communities that emerge, popular people and the connectors. See the graph below to see nodes with different colors (communities), size (popularity) and how most connections between the two communities flow through a few nodes (connections)
+
+```{r}
+adjacency <- as_adjacency_matrix(union_graph)
+
+EV <- eigen(adjacency) # compute eigenvalues and eigenvectors
+max(as.numeric(EV$values))  # find the maximum eigenvalue
+
+# get the eigenvector associated with the largest eigenvalue
+centrality <- data.frame(EV$vectors[,1]) 
+names(centrality) <- "Centrality"
+print(centrality)
+```
+
+https://github.com/briatte/awesome-network-analysis#r
+
+
+
+
