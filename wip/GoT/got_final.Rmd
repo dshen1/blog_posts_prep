@@ -16,13 +16,17 @@ A network can be thought of in terms of graph theory as a set of vertices connec
 http://econometricsense.blogspot.de/2012/04/using-sna-in-predictive-modeling.html
 
 ```{r warning=FALSE, message=FALSE}
+library(tidyverse)
 library(igraph)
+library(statnet)
 ```
 
 ```{r}
 load("union_edges.RData")
 load("union_characters.RData")
+```
 
+```{r}
 union_graph <- graph_from_data_frame(union_edges, directed = TRUE, vertices = union_characters)
 ```
 
@@ -56,6 +60,293 @@ legend("topleft", legend = c("Node color:", as.character(color_vertices$house), 
        col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
 #dev.off()
 ```
+
+- node degree
+
+(make sure that every spouse relationship has edges in both directions)
+
+```{r}
+union_graph_degree <- degree(union_graph, mode = "total")
+
+# Degree distribution is the cumulative frequency of nodes with a given degree
+# this, like degree() can be specified as "in", "out", or "all"
+deg.distr<-degree.distribution(union_graph,cumulative=T,mode="total")
+ 
+# Using the power.law.fit() function I can fit a power law to the degree distribution
+power<-power.law.fit(union_graph_degree)
+
+# The output of the power.law.fit() function tells me what the exponent of the power law is ($alpha)
+# and the log-likelihood of the parameters used to fit the power law distribution ($logLik)
+# Also, it performs a Kolmogov-Smirnov test to test whether the given degree distribution could have
+# been drawn from the fitted power law distribution.
+# The function thus gives me the test statistic ($KS.stat) and p-vaule ($KS.p) for that test
+ 
+# Then I can plot the degree distribution
+plot(deg.distr,log="xy",
+ylim=c(.01,10),
+bg="black",pch=21,
+xlab="Degree",
+ylab="Cumulative Frequency")
+ 
+# And the expected power law distribution
+lines(1:20,10*(1:20)^((-power$alpha)+1))
+ 
+# Graphs typically have a Poisson distribution (if they are random),
+# power law (preferential attachment), or truncated power law (many real networks) degree distribution
+
+```
+
+```{r fig.width=35, fig.height=35}
+plot(union_graph,
+     vertex.label = gsub(" ", "\n", V(union_graph)$name),
+     vertex.shape = V(union_graph)$shape,
+     vertex.color = V(union_graph)$color, 
+     vertex.size = union_graph_degree, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.mode = E(union_graph)$arrow,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph)$color,
+     edge.lty = E(union_graph)$lty)
+legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+```
+
+- Betweenness
+
+Betweenness centrality measures the extent to which a vertex lies on paths between other vertices. Vertices with high betweenness may have considerable influence within a network by virtue of their control over information passing between others. They are also the ones whose removal from the network will most disrupt communications between other vertices because they lie on the largest number of paths taken by messages.
+
+Mathematically, let $n_{s,t}^{i}$ be the number of geodesic paths from $s$ to $t$ that pass through $i$ and let $n_{s,t}$ be the total number of geodesic paths from $s$ to $t$. Recall that a geodesic path is not necessarily unique and the geodesic paths between a pair of vertices need not be node-independent, meaning they may pass through some of the same vertices. Then the betweenness centrality of vertex $i$ is:
+
+$\displaystyle{b_i = \sum_{s, t} w_{s,t}^{i} = \sum_{s, t} \frac{n_{s,t}^{i}}{n_{s,t}}}$
+where by convention the ratio $w_{s,t}^{i} = 0$ if $n_{s,t} = 0$. Notice that each pair of vertex $s, t$ contribute to the sum for $i$ with a weight $w_{s,t}^{i}$ between 0 and 1 expressing the betweenness of $i$ with respect to the pair $s, t$. Observe that:
+the given definition counts separately the geodesic paths in either direction between each vertex pair. Since these paths are the same on an undirected graph this effectively counts each path twice;
+the definition includes paths starting or ending with $i$ ($s$ can be equal to $i$ or $t$ can be equal to $i$), as well as paths from a vertex to itself ($s$ can be equal to $t$). It seems reasonable to define a vertex to be on a path between itself and someone else, or between some vertex and itself, since normally a vertex has control over information flowing from or to itself.
+It makes little difference in practice to consider the alternative definitions, since one is usually concerned only with the relative magnitudes of the centralities and not with their absolute values. The sum can be normalized by dividing by the total number of ordered pairs of nodes, which is $n^2$, so that betweenness lies strictly between 0 and 1.
+
+Function betweenness (R, C) computes betweenness centrality (the function counts undirected paths in only one direction and computes the sum in the betweenness formula for $s \neq t$, $s \neq i$ and $t \neq i$). This is the same network with nodes labelled with their betweenness centrality:
+
+Notice that our sample graph is in fact a tree, that is a connected acyclic undirected graph, hence the number $n_{s,t}$ of geodesics from $s$ to $t$ is always 1, and the number $n_{s,t}^{i}$ of geodesics from $s$ to $t$ that pass through $i$ is either 0 or 1. Hence the computed betweenness score for a vertex is the actual number of distinct paths that strictly contain the vertex in between.
+
+Betweenness centrality differs from the other centrality measures. A vertex can have quite low degree, be connected to others that have low degree, even be a long way from others on average, and still have high betweenness. Consider a vertex A that lies on a bridge between two groups of vertices within a network. Since any path between nodes in different groups must go through this bridge, node A acquires high betweenness even though it is not well connected (it lies at the periphery of both groups) and hence it might not have particularly high values for degree, eigenvector, and closeness centrality. Vertices in roles like this are sometimes referred to as brokers.
+
+The maximum possible value for betweenness occurs for the central node of a star graph, a network composed of a vertex attached to $n-1$ other vertices, whose only connection is with the central node. All paths, except the $n-1$ paths from the peripheral vertices to themselves, go through the central vertex, hence its betweenness is $n^2 - (n-1) = n^2 - n + 1$. At the other end of the scale, the smallest possible value for betweenness occurs for a leaf node in a graph with a single component, that is a node that is connected to the rest of the network with only one edge. The leaf vertex lies on every path that starts or ends with itself. These are $2n-1$ in total: $n-1$ paths from a vertex to others, $n-1$ from others to the vertex, and 1 from the vertex to itself.
+
+Betweenness centrality values are typically distributed over a wide range. Taking again the example of the film actor network, the individual with highest betweenness in the largest component of the network is Fernando Rey (The French Connection). It is no coincidence that he appeared in both European and American films, played roles in several languages, and worked in both film and television, hence he is the archetypal broker. Rey has a betweenness score of $7.47 \cdot 10^8$, while the lowest score of any actor in the large component is $8.91 \cdot 10^5$. Thus there is a ratio of almost a thousand between the two limits, much larger than the ratio of 3.6 we saw in the case of closeness. One consequence is that there are clear winners and losers in the betweenness centrality competition. The second highest betweenness score is attributed to Christopher Lee again, with $6.46 \cdot 10^8$, a $14%$ difference from the winner.
+
+Betweenness centrality, as defined above, is a measure of information control assuming two important hypothesis: (i) every pair of vertices exchange information with equal probability, and (ii) information flows along the geodesic (shortest) path between two vertices, or one of such path, chosen at random, if there are several. However, information not always takes the shortest route. In social network, for instance, a news about a friend of us might not come directly from the friend but from another mutual friend.
+
+Calculating closeness and betweenness centrality for all nodes in a graph involves computing the (unweighted) shortest paths between all pairs of nodes in the graph. A breath-first visit from a source node can be used to compute all shortest paths from the source in time $O(n + m)$, where $n$ and $m$ are the number of nodes and edges of the graph. If this visit is repeated for all the source nodes of the graph the cost amounts to $O(n \cdot (n+m))$. Typically, real networks are sparse graphs, meaning the number $m$ of edges is of the order of the number $n$ of nodes. For instance, it is very rare in a social network that a significant number of actors have contacts with all the other actors of the network. Hence the overall cost in practical cases is quadratic.
+
+Matrix representation of network:
+
+```{r}
+adjacency <- as_adjacency_matrix(union_graph)
+adjacency[1:10, 1:10]
+```
+
+```{r}
+library(NetIndices)
+graph.properties <- GenInd(as.matrix(adjacency))
+```
+
+```{r warning=FALSE, message=FALSE}
+library(sna)
+btwness <- data.frame(nodes = rownames(adjacency),
+                      btwness = betweenness(as.matrix(adjacency)))
+```
+
+```{r}
+e_btw <- edge_betweenness(union_graph, e = E(union_graph), directed = TRUE, weights = NULL)
+```
+
+```{r fig.width=35, fig.height=35}
+plot(union_graph,
+     vertex.label = gsub(" ", "\n", V(union_graph)$name),
+     vertex.shape = V(union_graph)$shape,
+     vertex.color = V(union_graph)$color, 
+     vertex.size = btwness$btwness * 0.05, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.width = e_btw * 0.5,
+     edge.arrow.mode = E(union_graph)$arrow,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph)$color,
+     edge.lty = E(union_graph)$lty)
+legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+```
+
+
+```{r fig.width=35, fig.height=35}
+# Diameter is essentially the longest path between two vertices
+diameter(union_graph)
+# Gives me the length of the diameter while
+
+union_graph_2 <- union_graph
+nodes.diameter<-get.diameter(union_graph_2)
+# Gives me the labels for each node that participates in the diameter
+
+# I can look at the diameter graphically also
+# First I will define the node and edge attributes
+V(union_graph_2)$color<-"skyblue"
+# I want all the nodes to be skyblue
+V(union_graph_2)$size<-7
+# I want all the nodes to be size=7
+V(union_graph_2)[nodes.diameter]$color<-"darkgreen"
+V(union_graph_2)[nodes.diameter]$size<-10
+V(union_graph_2)[nodes.diameter]$label.color<-"white"
+# but the nodes in the diameter should be darkgreen and larger than the rest
+# with a white label instead of black
+# this will make the diameter pop out of the larger network
+E(union_graph_2)$color<-"grey"
+# all non-diameter edges will be grey
+E(union_graph_2,path=nodes.diameter)$color<-"darkgreen"
+E(union_graph_2,path=nodes.diameter)$width<-2
+# Edges in the diameter will be darkgreen and a little extra wide
+
+# If you do not set the attributes of all of the nodes and edges then it will
+# default such that you only see what you have defined
+
+# Now when I plot the diameter will be larger than everything else, and darkgreen instead
+# of grey/blue
+par(mar=c(.1,.1,.1,.1))
+plot.igraph(union_graph_2,
+            layout=layout.fruchterman.reingold,
+            vertex.label.cex=.5,
+            edge.arrow.size=.5)
+```
+
+```{r}
+# Clustering coefficient is the proportion of
+# a nodes neighbors that can be reached by other neighbors
+# in igraph this property is apparently called "transitivity"
+
+transitivity(union_graph)
+# gives the clustering coefficient of the whole network
+
+transitivity(union_graph,type="local")
+# gives the clustering coefficient of each node
+
+# Betweenness is the number of shortest paths between two nodes that go through each node of interest
+
+# Clustering coefficient, betweenness, and closeness
+# all describe the small world properties of the network.
+# A network with small world properties is one in which
+# it takes a relatively short path to get from one node to the next
+# (e.g., six degrees of separation)
+```
+
+```{r warning=FALSE, message=FALSE}
+nrelations<-network(as.matrix(adjacency), directed=TRUE)
+
+summary(nrelations) # Get an overall summary
+network.dyadcount(nrelations) # How many dyads in nflo?
+network.edgecount(nrelations) # How many edges are present?
+network.size(nrelations) # How large is the network?
+as.sociomatrix(nrelations) # Show it as a sociomatrix
+nrelations[,] 
+
+library(sna) # Load the sna library
+library(rgl)
+gplot3d(nrelations, displaylabels=TRUE)
+```
+
+```{r}
+geodist(as.matrix(adjacency))
+```
+
+```{r}
+centr_degree(union_graph)
+centr_clo(union_graph)
+
+centr_eigen(union_graph)
+```
+
+```{r}
+gden(as.matrix(adjacency)) # Density
+grecip(as.matrix(adjacency)) # Dyadic reciprocity
+grecip(as.matrix(adjacency), measure="edgewise") # Edgewise reciprocity
+gtrans(as.matrix(adjacency)) # Transitivity
+```
+
+cliques
+
+```{r}
+dyad.census(as.matrix(adjacency)) # M,A,N counts
+triad.census(as.matrix(adjacency)) # Directed triad census
+kpath.census(as.matrix(adjacency), maxlen=6, tabulate.by.vertex=FALSE) # Count paths of length <=6
+kcycle.census(as.matrix(adjacency), maxlen=6, tabulate.by.vertex=FALSE) # Count cycles of length <=6
+clique.census(as.matrix(adjacency), tabulate.by.vertex=FALSE, enumerate=FALSE) # Find maximal cliques
+
+kpath.census(as.matrix(adjacency), maxlen=4) # Show tabulation by vertex
+```
+
+```{r fig.width=35, fig.height=35}
+indirect <- kpath.census(as.matrix(adjacency), maxlen=6, dyadic.tabulation="sum")$paths.bydyad
+gplot(indirect,label.cex=0.4,vertex.cex=0.75,displaylabels=TRUE,edge.col=rgb(0,0,0,0.25)) # Plot indirect MIDs
+```
+
+```{r}
+components(as.matrix(adjacency)) # Strong component count
+components(as.matrix(adjacency), connected="weak") # Weak component count
+cd <- component.dist(as.matrix(adjacency), connected="weak") # Get weak components
+plot(1:length(cd$cdist),cd$cdist,xlab="Size",ylab="Frequency")
+
+```
+
+```{r}
+g <- rgraph(20, tprob=3/19) # Start with a random digraph
+g
+is.connected(g) # Is g strongly connected?
+is.connected(g, connected="weak") # How about weakly connected?
+geodist(g) # Get information on geodesics
+reachability(g) # Return the reachability matrix
+symmetrize(g) # Symmetrize g using the "or" rule
+symmetrize(g, rule="strong") # Symmetrize g using the "and" rule
+```
+
+```{r}
+#Several ways to get relatively cohesive groups
+clique.census(g) # Maximal clique census
+kcores(g) # k-cores (by degree)
+cutpoints(g) # find articulation points
+```
+
+```{r}
+#Show the nesting of cores
+kc<-kcores(contig_1993,cmode="indegree")
+gplot(contig_1993,vertex.col=rainbow(max(kc)+1)[kc+1])
+#Showing members of the 5-core only
+gplot(contig_1993[kc>4,kc>4],vertex.col=rainbow(max(kc)+1)[kc[kc>4]+1])
+
+```
+
+```{r}
+ec <- equiv.clust(nrelations, mode="graph",plabels=network.vertex.names(nrelations))
+ec # The clustering
+plot(ec) # Plot the dendrogram
+rect.hclust(ec$cluster, h=20)
+
+```
+
+```{r}
+bm <- blockmodel(nrelations, ec, h=20)
+plot.sociomatrix(nrelations[bm$order.vector,bm$order.vector],drawlab=FALSE)
+```
+
+```{r}
+bimage <- bm$block.model
+bimage
+bimage[is.nan(bimage)] <- 1
+
+gplot(bimage, diag=TRUE, edge.lwd=bimage*5, vertex.cex=sqrt(table(bm$block.membership))/2,
+gmode="graph", vertex.sides=50, vertex.col=gray(1-diag(bimage)))
+```
+
+---
 
 Of interest is to use this mathematical representation of a network to quantify information that can be used to identify what we might call ‘key players’ in a network.  These measures include ‘betweenness’, ‘degree centrality’ and ‘eigenvector centrality.’ 
 
@@ -94,8 +385,6 @@ Centrality measures for each individual could easily be exported and incorporate
 I was also able to discover interesting patterns in the data, like the communities that emerge, popular people and the connectors. See the graph below to see nodes with different colors (communities), size (popularity) and how most connections between the two communities flow through a few nodes (connections)
 
 ```{r}
-adjacency <- as_adjacency_matrix(union_graph)
-
 EV <- eigen(adjacency) # compute eigenvalues and eigenvectors
 max(as.numeric(EV$values))  # find the maximum eigenvalue
 
@@ -107,6 +396,408 @@ print(centrality)
 
 https://github.com/briatte/awesome-network-analysis#r
 
+NetworkAnalyzer Online Help
+Contents
+
+NetworkAnalyzer Settings
+Network Interpretations
+Simple Network Parameters
+Complex Network Parameters
+Degree distributions
+Neighborhood connectivity
+Shortest paths
+Clustering coefficients
+Shared neighbors
+Topological coefficients
+Stress centrality
+Betweenness centrality
+Closeness centrality
+Analysis of subset of nodes
+Batch Analysis
+Fitting a Line
+Fitting a Power Law
+Attributes
+Visualizing Computed Parameters
+Network Modifications
+References
+NetworkAnalyzer Settings
+
+The following plugin settings can be configured by the user:
+
+Store node / edge parameters in node / edge attributes
+For every node in a network, NetworkAnalyzer computes its degree (in- and out-degrees for directed networks), its clustering coefficient, the number of self-loops, and a variety of other parameters. NetworkAnalyzer also computes edge betweenness for each edge in the network. If the respective options are enabled, NetworkAnalyzer stores the computed values as attributes of the corresponding nodes and edges. This enables the users to apply different visualizations or to filter nodes or edges based on the values of the computed attributes. For a complete list of the computed node and edge attributes, please see the section Attributes.
+
+Use expandable interface for the dialog that displays analysis results
+If this option is enabled, analysis results are presented in a window in which all charts are placed below each other in expandable boxes. If this option is disabled, analysis results are presented in a window that contains tabs for the group of simple parameters and for every complex parameter. Users who wish to view simultaneously two or more complex parameters of one network, should enable this option.
+
+Change colors for parameter visualization
+This options allow the user to change the default colors of parameter visualization. Please see the section Visualizing Computed Parameters for more details.
+
+Background color
+The color of the background in the network view. It is initially set to the default Cytoscape background color.
+
+Bright color
+This color defines the brightest color that parameters can be mapped to. By default its value is green.
+
+Middle color
+This color defines the intermediate color, that parameters can be mapped to. By default its value is yellow.
+
+Dark color
+This color defines the darkest color that parameters can be mapped to. By default its value is red.
+
+Location of the help documents
+URL of this help web page for NetworkAnalyzer. This also enables the local download and storage of this help page.
+
+Network Interpretations
+
+ directed network
+
+(a)
+
+ undirected network
+
+(b)
+
+Figure 1 Example of a directed network (a) and an undirected network (b).
+
+NetworkAnalyzer can perform topological analysis on directed networks (containing only directed edges) as well as on undirected networks (containing only undirected edges). An example of a directed network and an undirected network is given in Figure 1a and Figure 1b, respectively.
+
+In Cytoscape, a network may contain only directed edges even if they are undirected in their biological context. Moreover, one network may contain both directed and undirected edges if the network is compiled by combining data from different sources.
+
+In the situations described above, NetworkAnalyzer needs user input how to interpret the edges. Figure 2 depicts two examples of small networks in Cytoscape and their interpretations.
+
+In (a), the network contains solely directed edges. Here, NetworkAnalyzer provides three possible interpretations of the edge directions in the network. The user has to select one of the interpretations for further processing of the network.
+
+In (b), the network contains both undirected and directed edges. Note that undirected edges cannot be converted unambiguously to directed ones. Therefore, networks with mixed edges are handled as undirected ones.
+
+ network interpretations
+
+(a)
+
+network interpretations
+
+(b)
+
+Figure 2 (a) Network with directed paired edges and its three possible interpretations. (b) Network containing both directed and undirected edges and its interpretation as undirected.
+
+Simple Network Parameters
+
+Number of connected components
+In undirected networks, two nodes are connected if there is a path of edges between them. Within a network, all nodes that are pairwise connected form a connected component. The number of connected components indicates the connectivity of a network – a lower number of connected components suggests a stronger connectivity.
+
+Parameters related to shortest paths
+The length of a path is the number of edges forming it. There may be multiple paths connecting two given nodes. The shortest path length, also called distance, between two nodes n and m is denoted by L(n,m). The network diameter is the largest distance between two nodes. If a network is disconnected, its diameter is the maximum of all diameters of its connected components. The diameter can also be described as the maximum node eccentricity (eccentricity is defined in the Attributes section). The network radius, on the other hand, is the minimum among the non-zero eccentricites of the nodes in the network. The average shortest path length, also known as the characteristic path length, gives the expected distance between two connected nodes.
+
+Parameters related to neighborhood
+The neighborhood of a given node n is the set of its neighbors. The connectivity of n, denoted by kn, is the size of its neighborhood. The average number of neighbors indicates the average connectivity of a node in the network. A normalized version of this parameter is the network density. The density is a value between 0 and 1. It shows how densely the network is populated with edges (self-loops and duplicated edges are ignored). A network which contains no edges and solely isolated nodes has a density of 0. In contrast, the density of a clique is 1.
+
+The number of isolated nodes may provide insight how the network density is distributed. Another related parameter is the network centralization [6]. Networks whose topologies resemble a star have a centralization close to 1, whereas decentralized networks are characterized by having a centralization close to 0. The network heterogeneity [6] reflects the tendency of a network to contain hub nodes.
+
+In addition, the number of multi-edge node pairs indicates how often neighboring nodes are linked by more than one edge.
+
+Clustering coefficient
+In undirected networks, the clustering coefficient Cn of a node n is defined as Cn = 2en/(kn(kn-1)), where kn is the number of neighbors of n and en is the number of connected pairs between all neighbors of n [17, 2]. In directed networks, the definition is slightly different: Cn = en/(kn(kn-1)).
+
+In both cases, the clustering coefficient is a ratio N / M, where N is the number of edges between the neighbors of n, and M is the maximum number of edges that could possibly exist between the neighbors of n. The clustering coefficient of a node is always a number between 0 and 1.
+
+The network clustering coefficient is the average of the clustering coefficients for all nodes in the network. Here, nodes with less than two neighbors are assumed to have a clustering coefficient of 0.
+
+Complex Network Parameters
+
+Degree distributions
+In undirected networks, the node degree of a node n is the number of edges linked to n. A self-loop of a node is counted like two edges for the node degree [5]. The node degree distribution gives the number of nodes with degree k for k = 0,1,….
+
+In directed networks, the in-degree of a node n is the number of incoming edges and the out-degree is the number of outgoing edges. Similar to undirected networks, there are an in-degree distribution and an out-degree distribution.
+
+Barabási and Albert used the node degree distribution to distinguish between random (as defined by Erdős and Rényi [7, 3]) and scale-free network topologies [2].
+
+Neighborhood connectivity
+The connectivity of a node is the number of its neighbors. The neighborhood connectivity of a node n is defined as the average connectivity of all neighbors of n [10]. The neighborhood connectivity distribution gives the average of the neighborhood connectivities of all nodes n with k neighbors for k = 0,1,…. Figure 3 shows the neighborhood connectivity distribution for the network presented in Figure 1b.
+
+NetworkAnalyzer computes similar parameters for directed networks. In analogy to the in- and out-degree, every node n in a directed network has in- and out-connectivity. Thus, in directed networks, a node has the following types of neighborhood connectivity:
+
+only in - the average out-connectivity of all in-neighbors of n;
+only out - the average in-connectivity of all out-neighbors of n;
+in and out - the average connectivity of all neighbors of n (edge direction is ignored).
+Based on the three definitions given above, there are three neighborhood connectivity distributions - "only in", "only out" and "in and out".
+
+Figure 3
+Figure 3 Neighborhood connectivity distribution of the network shown in Figure 1b.
+
+If the neighborhood connectivity distribution is a decreasing function in k, edges between low connected and highly connected nodes prevail in the network [10].
+
+Shortest paths
+The length of the shortest path between two nodes n and m is L(n,m). The shortest path length distribution gives the number of node pairs (n,m) with L(n,m) = k for k = 1,2,….
+
+The network diameter is the maximum length of shortest paths between two nodes. If a network is disconnected, its diameter is the maximum of all diameters of its connected components.
+
+The network diameter and the shortest path length distribution may indicate small-world properties of the analyzed network [17].
+
+Clustering coefficients
+In undirected networks, the clustering coefficient Cn of a node n is defined as Cn = 2en/(kn(kn-1)), where kn is the number of neighbors of n and en is the number of connected pairs between all neighbors of n [17, 2]. In directed networks, the definition is slightly different: Cn = en/(kn(kn-1)).
+
+In both cases, the clustering coefficient is a ratio N / M, where N is the number of edges between the neighbors of n, and M is the maximum number of edges that could possibly exist between the neighbors of n. The clustering coefficient of a node is always a number between 0 and 1.
+
+The average clustering coefficient distribution gives the average of the clustering coefficients for all nodes n with k neighbors for k = 2,…. NetworkAnalyzer also computes the network clustering coefficient that is the average of the clustering coefficients for all nodes in the network.
+
+The clustering coefficient of a node is the number of triangles (3-loops) that pass through this node, relative to the maximum number of 3-loops that could pass through the node.
+
+Figure 4
+Figure 4 Example network with four nodes and four edges.
+
+For example, in Figure 4, there is one triangle that passes through node b (the triangle bcd). The maximum number of triangles that could pass through b is three (in this case, the pairs (a, c) and (a, d) would be connected additionally). This yields a clustering coefficient of Cb = 1 / 3.
+
+Ravasz et al. used the average clustering coefficient distribution to identify a modular organization of metabolic networks [13].
+
+Shared neighbors
+P(n,m) is the number of partners shared between the nodes n and m, that is, nodes that are neighbors of both n and m. The shared neighbors distribution gives the number of node pairs (n,m) with P(n,m) = k for k = 1,….
+
+If a motif like the one presented in Figure 5 is over-represented in a network, this can be inferred from the shared neighbors distribution.
+
+Figure 5
+Figure 5 Motif of two nodes sharing exactly four neighbors.
+
+Topological coefficients
+The topological coefficient [15] Tn of a node n with kn neighbors is computed as follows:
+Tn = avg ( J(n,m) ) / kn.
+Here, J(n,m) is defined for all nodes m that share at least one neighbor with n. The value J(n,m) is the number of neighbors shared between the nodes n and m, plus one if there is a direct link between n and m.
+
+For example, in Figure 6, J(b,c) = J(b,d) = J(b,e) = 2. Therefore, Tb = 2 / 3.
+
+The topological coefficient is a relative measure for the extent to which a node shares neighbors with other nodes. NetworkAnalyzer computes the topological coefficients for all nodes with more than one neighbor in the network. Nodes that have one or no neighbors are assigned a topological coefficient of 0 (zero).
+
+Figure 6
+Figure 6 Example network with five nodes and six edges.
+
+The chart of the topological coefficients can be used to estimate the tendency of the nodes in the network to have shared neighbors.
+
+Stress centrality
+The stress centrality [4, 14] of a node n is the number of shortest paths passing through n. A node has a high stress if it is traversed by a high number of shortest paths. This parameter is defined only for networks without multiple edges.
+
+The stress centraility distribution gives the number of nodes with stress s for different values of s. The values for the stress are grouped into bins whose size grows exponentially by a factor of 10. The bins used for this distribution are {0}; [1, 10); [10, 100); ...
+
+Betweenness centrality
+The betweenness centrality [4] Cb(n) of a node n is computed as follows:
+Cb(n) = ∑s≠n≠t (σst (n) / σst),
+where s and t are nodes in the network different from n, σst denotes the number of shortest paths from s to t, and σst (n) is the number of shortest paths from s to t that n lies on.
+
+Betweenness centrality is computed only for networks that do not contain multiple edges. The betweenness value for each node n is normalized by dividing by the number of node pairs excluding n: (N-1)(N-2)/2, where N is the total number of nodes in the connected component that n belongs to. Thus, the betweenness centrality of each node is a number between 0 and 1.
+
+For example, the betweenness centrality of node b in Figure 7 is computed as follows:
+Cb(b) = ((σac(b) / σac) + (σad(b) / σad) + (σae(b) / σae) + (σcd(b) / σcd) + (σce(b) / σce) + (σde(b) / σde)) / 6 = ((1 / 1) + (1 / 1) + (2 / 2) + (1 / 2) + 0 + 0) / 6 = 3.5 / 6 ≈ 0.583
+
+Figure 7
+Figure 7 Example network with five nodes and five edges.
+
+The betweenness centrality of a node reflects the amount of control that this node exerts over the interactions of other nodes in the network [19]. This measure favors nodes that join communities (dense subnetworks), rather than nodes that lie inside a community.
+
+NetworkAnlayzer uses the fast algorithm by Brandes [4] for the computation of node betweenness centrality. This algorithm has a complexity of O(NM), N being the number of nodes and M - the number of edges in the network.
+
+Closeness centrality
+The closeness centrality [11] Cc(n) of a node n is defined as the reciprocal of the average shortest path length and is computed as follows:
+Cc(n) = 1 / avg( L(n,m) ),
+where L(n,m) is the length of the shortest path between two nodes n and m. The closeness centrality of each node is a number between 0 and 1.
+
+NetworkAnalyzer computes the closeness centrality of all nodes and plots it against the number of neighbors. The closeness centrality of isolated nodes is equal to 0.
+
+Closeness centrality is a measure of how fast information spreads from a given node to other reachable nodes in the network [11].
+
+For example, the closeness centrality of node b in Figure 7 is computed as follows:
+Cc(b) = 1/ ( (L(b, a) + L(b, c) + L(b, d) + L(b, e)) / 4) = 4/ (1 + 1 + 1 + 2) = 4/5 = 0.8
+
+Analysis of subset of nodes
+
+An exhaustive topological analysis of very large networks can be a time consuming task. The computation of local parameters for the nodes is significantly faster than the computation of global (path-related) parameters. Examples of local parameters are node degree, neighborhood connectivity, topological and clustering coefficients. Betweenness and closeness centralities, as well as stress, are global parameters.
+
+NetworkAnalyzer provides the option "Analyze Subset of Nodes" for computing local parameters for a subset of nodes. If one or more nodes in the network are selected before starting an analysis, only the subnetwork induced by the selected nodes is analyzed. Moreover, only local parameters are computed. Shared neighbors distribution and shortest path lengths distribution, among others, are not displayed in the results.
+
+Batch Analysis
+
+The "Batch Analysis" menu item in NetworkAnalyzer is used to perform topological analysis on all networks stored in specific directory, using all possible interpretations for every network. Batch analysis consist of three simple steps:
+
+Selecting directories
+The user selects the input and output directories. The input directory should contain network files that can be loaded into Cytoscape. NetworkAnalyzer loads consecutively each of the networks it finds in the directory and performs topological analysis on it. Subdirectories of the input directory are not traversed. The output directory is the one that will contain all analysis results after the batch analysis. In order to avoid file overwriting, NetworkAnalyzer requires that the output directory is empty (contains no files) before the batch analysis starts.
+
+Analysis
+NetworkAnalyzer scans the input directory and loads all supported networks into Cytoscape, one at a time. Each loaded network is inspected and then it is analyzed considering all possible interpretations for it. The analysis step is complete after all networks are analyzed. Note that, depending on the number of networks and their sizes, this might be a very time-consuming step.
+
+Inspection of results
+After the analysis is complete, the button "Show Results" is enabled, and it displays the results dialog. The dialog contains a table of all topological analyses performed. Every row in the results table lists the loaded network, its interpretation and the resulting network statistics file that was saved in the output directory. By clicking on a network name and on statistics file name, the user can load the network and topology analysis results, respectively.
+
+Fitting a Line
+
+NetworkAnalyzer provides another useful feature - fitting a line on the data points of some complex parameters. The method applied is the least squares method for linear regression [18]. NetworkAnalyzer gives the correlation between the given data points and the corresponding points on the fitted line. In addition, the R-squared value (also known as coefficient of determination) is reported.
+
+Fitting a line can be used to identify linear dependencies between the values of the x and y coordinates in a complex parameter. Figure 8 shows the fitted line on a neighborhood connectivity distribution. The correlation between the data points and corresponding points on the line is approximately 0.969. The R-squared value is 0.939, giving a relatively high confidence that the underlying model is indeed linear.
+
+Figure 8
+Figure 8 Neighborhood connectivity distribution of the network shown in Figure 1b, with a fitted line.
+
+Fitting a Power Law
+
+The degree distribution of many biological networks approximates a power law: DD(k) ~ kα for some negative constant α. Several studies have reported similar properties of the average clustering coefficient distribution [13] and the topological coefficients [15].
+
+NetworkAnalyzer can fit a power law to some topological parameters. Please note that NetworkAnalyzer uses the least squares method [18], and only points with positive coordinate values are considered for the fit. This approach fits a line on logarithmized data and may be inappropriate for supporting certain hypotheses [8, 16].
+
+NetworkAnalyzer gives the correlation between the given data points and the corresponding points on the fitted curve. In addition, the R-squared value (also known as coefficient of determination) is reported. This coefficient gives the proportion of variability in a data set, which is explained by a fitted linear model. Therefore, the R-squared value is computed on logarithmized data, where the power-law curve:
+y = β xα
+is transformed into linear model:
+ln y = ln β + α ln x,
+as shown in Figure 9.
+
+Figure 9a
+
+(a)
+
+Figure 9b
+
+(b)
+
+Figure 9 (a) Neighborhood connectivity distribution of the network shown in Figure 1b, with a fitted power law. (b) The R-squared value reported is the R-squared value for the fitted line on logarithmized data.
+
+Attributes
+
+Node Attributes
+While iterating over the connected components of a network, NetworkAnalyzer computes the following topological measures for each node n:
+
+AverageShortestPathLength
+Average length of a shortest path between n and any other node. If n is an isolated node, the value of this attribute is zero.
+
+BetweennessCentrality
+Betweenness centrality of n as explained in the section Betweenness centrality.
+
+ClosenessCentrality
+Closeness centrality of n as described in the section Closeness centrality.
+
+ClusteringCoefficient
+This numerical attribute stores the clustering coefficient of n, as defined in [2]. Nodes with less than 2 neighbors have a clustering coefficient of zero.
+
+Degree
+The degree of n as explained in the section Degree Distributions.
+
+Eccentricity
+The maximum non-infinite length of a shortest path between n and another node in the network. If n is an isolated node, the value of this attribute is zero.
+
+IsSingleNode
+This boolean attribute indicates if n is an isolated node, that is, if n has no neighbors.
+
+NeighborhoodConnectivity
+The neighborhood connectivity of n as explained in the section Neighborhood Connectivity.
+
+NumberOfDirectedEdges
+This attribute counts the number of directed edges that are connected to n.
+
+NumberOfUndirectedEdges
+This attribute counts the number of undirected edges that are connected to n.
+
+PartnerOfMultiEdgedNodePairs
+This attribute indicates if n is a partner of node pairs with multiple edges.
+
+Radiality
+This attribute is a node centrality index [4] computed by subtracting the average shortest path length of a node n from the diameter of the connected component plus 1. The radiality of each node is divided by the diameter of the connected component. Thus it is a number between 0 and 1.
+
+SelfLoops
+This attribute counts the number of self-loops at n.
+
+Stress
+This attribute counts the number of shortest paths passing through a node.
+
+TopologicalCoefficient
+This numerical attribute stores the topological coefficient of n, as defined in [15]. Nodes with less than 2 neighbors have a topological coefficient of zero.
+
+Edge Attributes
+While iterating over the connected components of a network, NetworkAnalyzer computes the following topological measures for each edge e:
+
+EdgeBetweenness
+This attribute stores the edge betweenness of each edge normalized by dividing by (M-1)(M-2), where M is the number	of edges in the connected component that the edge belongs to. The edge betweenness of e=(v,w) is defined as the number of shortest paths between two nodes s and t that go through e divided by the total number of shortest paths that go from s to t [12], [19].
+Edge betweenness is computed only for networks that do not contain multiple edges. In addition, self-loops are neglected in the calculation.
+
+Visualizing Computed Parameters
+
+For a visual inspection of the results of a topological analysis, NetworkAnalyzer includes two options. On the one hand, the computed parameters can be visualized by mapping them to node/edge size and color. On the other hand, each pair of computed parameters can be plotted in a chart. Both types of visualizations can be applied to the attributes computed by NetworkAnalyzer, as well as to all other numerical attributes assigned to the nodes and edges of the network of interest.
+
+Note that visual mapping is possible only when the computed parameters for the selected network are stored as node and edge attributes. Make sure the option "Store node / edge parameters in node / edge attributes" in NetwowkAnalyzer Settings is enabled. Parameters loaded from a .netstats file cannot be visualized because the network itself is not stored in the network statistics file. If, after performing topological analysis, the network is modified by introducing or removing nodes or edges, it is recommended (and sometimes required) to run NetworkAnalyzer again before visualizing any parameters.
+
+Map Parameters to Visual Style
+The visual mapping is initiated by the Map Parameters to Visual Style dialog, shown on Figure 10. There are two ways of mapping computed parameters.
+
+Map to node / edge size
+The computed parameter is mapped to the size of the nodes or edges. Mapping can be straight or inverse, that is, low parameter values can be mapped to small sizes or to large sizes. The smallest node size is set to 10 and the largest one to 100. Regarding edges, size reflects the edge line width and varies between 1 and 8. Refer to the documentation of Cytoscape's VizMapperTM if interested in fine-tuning the mapping parameters.
+
+Map to node / edge color
+A computed parameter is mapped to the color of the nodes or edges. Two mapping styles are possible - mapping low parameter values to bright colors or to dark colors. By default, the brightest color is green and the darkest color is red. The mapping also uses a middle (intermediate) color, which allows for fine-grained perception of differing values through the color gradient. The default middle color is yellow.
+
+Figure 10
+Figure 10 Map parameters to visual styles dialog
+
+The default values for background, bright, middle and dark colors can be changed in the NetworkAnalyzer Settings menu option.
+
+Plot Parameters
+The Plot Parameters dialog offers a possibility to plot two parameters against each other. One possible application of such a plot is to observe the correlation of two parameters as shown on Figure 11. The parameters to be plotted can be chosen from two drop-down menus. The Attrbiute 1 menu provides the values for the domain/category axis, and the Attribute 2 menu specifies the values for the range/value axis. The plot is updated each time a different parameter is selected in one of the menus.
+
+Figure 11
+Figure 11 Plot parameters dialog
+
+Network Modifications
+
+In addition to topological analysis, NetworkAnalyzer offers a useful set of network modifications.
+
+Remove Duplicated Edges
+NetworkAnalyzer can remove duplicated edges in a network. After applying this operation to a network, every node pair (a, b) is connected by at most three edges - a directed edge from a to b, a directed edge from b to a, and an undirected edge. For each of these edge types, if there are more than one edge, one is randomly chosen and all others are removed from the network. Any attributes of the considered edges, if present, are ignored. If the option "Ignore edge direction" is selected, all edges are treated as undirected and thus only one edge per node pair is retained.
+
+This option does not affect self-loops in the network. All duplicated self-loops, if any, are retained.
+
+Please note that this option effectively modifies the selected network(s) and the operations performed cannot be undone.
+
+Remove Self-Loops
+NetworkAnalyzer can remove self-loops in a network. A self-loop is an edge which connects a node to itself. By applying this operation to a network, all directed and undirected self-loops are removed.
+
+This option does not affect any other edges present in the network.
+
+Please note that this option effectively modifies the selected network(s) and the operations performed cannot be undone.
+
+Network Operations
+NetworkAnalyzer can compute the union, intersection and difference of any two networks. The result of such operation is stored as a new network in Cytoscape.
+
+NetworkAnalyzer computes these set operations two networks both on the node and on the edge levels. Note that every network is a pair of a node set and an edge set (N, E). Set operations - union, intersection and difference - are performed on both the node sets and the edge sets of networks.
+
+Connected Components
+NetworkAnalyzer can list all its connected components of a disconnected network. The size (number of nodes) of each component is reported. By selecting a specific connected component, it can be exported as a separate network in Cytoscape. This feature allows users to perform topological analysis on the largest connected component of a network.
+
+References
+
+[1]	Barabási, A.L., Albert, R.: Emergence of scaling in random networks. Science 286 (1999) 509-512
+[2]	Barabási, A.L., Oltvai, Z.N.: Network biology: understanding the cell's functional organization. Nat Rev Genet 5 (2004) 101-113
+[3]	Bollobas, B.: Random graphs. Cambridge University Press, Cambridge (2001), ISBN: 0-521-80920-7
+[4]	Brandes, U.: A faster algorithm for betweenness centrality. J Math Sociol 25 (2001) 163-177
+[5]	Diestel, R.: Graph theory. Springer-Verlag, Heidelberg (2005), ISBN 3-540-26182-6
+[6]	Dong, J., Horvath, S.: Understanding network concepts in modules. BMC Syst Biol 24 (2007)
+[7]	Erdős, P., Renyi, A.: Publ Math Inst Hung Acad Sci 5 (1960) 17
+[8]	Goldstein, M.L., Morris, S.A., Yena, G.G.: Problems with fitting to the power-law distribution. European Physical Journal B 41 (2004) 255-258
+[9]	Hastie, T., Tibshirani, R., Friedman, J.: The Elements of Statistical Learning. Springer-Verlag (2001), ISBN 0-387-95284-5
+[10]	Maslov, S., Sneppen, K: Specificity and stability in topology of protein networks. Science 296 (2002) 910-913.
+[11]	Newman, M.E.J.: A measure of betweenness centrality based on random walks. arXiv (2003) cond-mat/0309045
+[12]	Newman, M.E.J., Girvan, M.: Finding and evaluating community structure in networks. Soc Networks 27 (2005) 39-54
+[13]	Ravasz, E., et al.: Hierarchical organization of modularity in metabolic networks. Science 297 (2002) 1551-1555
+[14]	Shimbel, A.: Structural parameters of communication networks. Bull Math Biophys 15 (1953) 501-507.
+[15]	Stelzl, U., et al.: A human protein-protein interaction network: a resource for annotating the proteome. Cell 122 (2005) 957-968.
+[16]	Tanaka, R., Yi, T.M, Doyle, J.: Some protein interaction data do not exhibit power law statistics. FEBS Letters 579 (2005) 5140-5144
+[17]	Watts D.J., Strogatz, S.H.: Collective dynamics of 'small-world' networks. Nature 393 (1998) 440-442
+[18]	Weisstein, E. W.: Least Squares Fitting - Power Law. MathWorld - A Wolfram Web Resource.
+(http://mathworld.wolfram.com/LeastSquaresFittingPowerLaw.html)
+[19]	Yoon, J., Blumer, A., Lee, K.: An algorithm for modularity analysis of directed and weighted biological networks based on edge-betweenness centrality.
+Bioinformatics, 22 (2006) 3106-8
+
+
+
+
+------------------
+
+<br>
+
+```{r }
+sessionInfo()
+```
 
 
 
