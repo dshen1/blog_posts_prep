@@ -424,11 +424,65 @@ predictions[predictions$name == "Aeron Greyjoy", "mother"] <- "Lady of House Sun
 predictions[predictions$name == "Robin Greyjoy", "father"] <- "Quellon Greyjoy"
 predictions[predictions$name == "Robin Greyjoy", "mother"] <- "Lady of House Piper"
 
-predictions[, c(6, 12:13, 15, 34)] %>% arrange(name)
-predictions[grep("Robin Greyjoy", predictions$name), c(6, 12:13, 15, 34)] %>% arrange(name)
-```
+predictions[predictions$name == "Ryman Frey", "mother"] <- "Corenna Swann"
 
-http://awoiaf.westeros.org/index.php/Rodwell_Stark
+predictions[predictions$name == "Walda Frey daughter of Edwyn", "father"] <- "Edwyn Frey"
+predictions[predictions$name == "Walda Frey daughter of Edwyn", "mother"] <- "Janyce Hunter"
+
+predictions[predictions$name == "Aegon Frey son of Stevron", "father"] <- "Stevron Frey"
+predictions[predictions$name == "Aegon Frey son of Stevron", "mother"] <- "Jeyne Lydden"
+
+predictions[predictions$name == "Cleos Frey", "father"] <- "Emmon Frey"
+predictions[predictions$name == "Cleos Frey", "mother"] <- "Genna Lannister"
+
+predictions[predictions$name == "Tywin Frey", "father"] <- "Cleos Frey"
+predictions[predictions$name == "Tywin Frey", "mother"] <- "Jeyne Darry"
+
+predictions[predictions$name == "Willem Frey", "father"] <- "Cleos Frey"
+predictions[predictions$name == "Willem Frey", "mother"] <- "Jeyne Darry"
+
+predictions[predictions$name == "Lyonel Frey", "father"] <- "Emmon Frey"
+predictions[predictions$name == "Lyonel Frey", "mother"] <- "Genna Lannister"
+
+predictions[predictions$name == "Tion Frey", "father"] <- "Emmon Frey"
+predictions[predictions$name == "Tion Frey", "mother"] <- "Genna Lannister"
+
+predictions[predictions$name == "Walder Frey son of Emmon", "father"] <- "Emmon Frey"
+predictions[predictions$name == "Walder Frey son of Emmon", "mother"] <- "Genna Lannister"
+
+predictions[predictions$name == "Amerei Frey", "father"] <- "Merrett Frey"
+predictions[predictions$name == "Amerei Frey", "mother"] <- "Mariya Darry"
+
+predictions[predictions$name == "Walda Frey daughter of Merrett", "father"] <- "Merrett Frey"
+predictions[predictions$name == "Walda Frey daughter of Merrett", "mother"] <- "Mariya Darry"
+
+predictions[predictions$name == "Walder Frey son of Merrett", "father"] <- "Merrett Frey"
+predictions[predictions$name == "Walder Frey son of Merrett", "mother"] <- "Mariya Darry"
+
+predictions[predictions$name == "Marissa Frey", "father"] <- "Merrett Frey"
+predictions[predictions$name == "Marissa Frey", "mother"] <- "Mariya Darry"
+
+predictions[predictions$name == "Merrett Frey", "father"] <- "Walder Frey"
+predictions[predictions$name == "Merrett Frey", "mother"] <- "Amarei Crakehall"
+
+predictions[predictions$name == "Roslin Frey", "father"] <- "Walder Frey"
+predictions[predictions$name == "Roslin Frey", "mother"] <- "Bethany Rosby"
+
+predictions[predictions$name == "Olyvar Frey", "father"] <- "Walder Frey"
+predictions[predictions$name == "Olyvar Frey", "mother"] <- "Bethany Rosby"
+
+predictions[predictions$name == "Willamen Frey", "father"] <- "Walder Frey"
+predictions[predictions$name == "Willamen Frey", "mother"] <- "Bethany Rosby"
+
+predictions[predictions$name == "Benfrey Frey", "father"] <- "Walder Frey"
+predictions[predictions$name == "Benfrey Frey", "mother"] <- "Bethany Rosby"
+
+predictions[predictions$name == "Perwyn Frey", "father"] <- "Walder Frey"
+predictions[predictions$name == "Perwyn Frey", "mother"] <- "Bethany Rosby"
+
+predictions[, c(6, 12:13, 15, 34)] %>% arrange(name)
+predictions[grep("Perwyn", predictions$name), c(6, 12:13, 15, 34)] %>% arrange(name)
+```
 
 ```{r}
 add <- predictions[predictions$name == "Willam Stark", ]
@@ -484,7 +538,7 @@ add[, "spouse"] <- "Rowena Arryn"
 predictions <- rbind(predictions, add)
 
 add <- predictions[predictions$name == "Stevron Frey", ]
-add[, "spouse"] <- "Marsella Weynwood"
+add[, "spouse"] <- "Marsella Waynwood"
 predictions <- rbind(predictions, add)
 
 add <- predictions[predictions$name == "Stevron Frey", ]
@@ -506,7 +560,7 @@ add[, "spouse"] <- "Lady of House Piper"
 predictions <- rbind(predictions, add)
 
 predictions[, c(6, 15:16)] %>% arrange(name)
-predictions[grep("Quellon", predictions$name), c(6, 15:16)] %>% arrange(name)
+predictions[grep("Bethany", predictions$name), c(6, 15:16)] %>% arrange(name)
 ```
 
 ```{r}
@@ -813,6 +867,7 @@ net[net$source == "Rhaegar Targaryen" & net$target == "Aegon Targaryen son of Rh
 characters[characters$name == "Aegon II", "name"] <- "Aegon II Targaryen"
 characters[characters$name == "Aegon II Targaryen", "house"] <- "House Targaryen"
 characters[characters$name == "Aegon Targaryen son of Jaehaerys I", "house"] <- "House Targaryen"
+characters[characters$name == "Marsella Weynwood", "name"] <- "Marsella Waynwood"
 
 library(RColorBrewer)
 colors_edges <- with(net,
@@ -834,6 +889,49 @@ characters$shape[is.na(characters$shape)] <- "none"
 
 ```{r warning=FALSE, message=FALSE}
 library(igraph)
+```
+
+```{r fig.width=20, fig.height=10}
+characters_Frey <- characters %>%
+  filter(name %in% c("Emmon Frey", "Cleos Frey", "Tywin Frey", "Willem Frey", "Lyonel Frey", "Tion Frey", "Walder Frey son of Emmon", "Amerei Frey", "Lancel Lannister", "Merrett Frey", "Walda Frey daughter of Merrett", "Walder Frey son of Merrett", "Marissa Frey", "Roslin Frey", "Olyvar Frey", "Willamen Frey", "Benfrey Frey", "Perwyn Frey"))
+
+net_Frey <- net %>%
+  filter(source %in% characters_Frey$name | target %in% characters_Frey$name)
+
+net_Frey$lty <- "solid"
+net_Frey$arrow <- ifelse(net_Frey$type == "spouse", 3, 2)
+
+net_Frey <- net_Frey[net_Frey$type != "father/mother", ]
+net_Frey <- rbind(net_Frey,
+                  c("Perra Royce", "Walder Frey", "spouse", "#E7298A", "solid", 3),
+                  c("Amarei Crakehall", "Walder Frey", "spouse", "#E7298A", "solid", 3),
+                  c("Bethany Rosby", "Walder Frey", "spouse", "#E7298A", "solid", 3))
+
+characters_Frey <- characters %>%
+  filter(name %in% net_Frey$source | name %in% net_Frey$target) %>%
+  arrange(name)
+
+graph_Frey <- graph_from_data_frame(net_Frey, directed = TRUE, vertices = characters_Frey)
+```
+
+```{r fig.width=20, fig.height=10}
+pdf("family_tree_Frey.pdf", width = 20, height = 15)
+plot(graph_Frey,
+     layout = layout_with_lgl,
+     vertex.label = gsub(" ", "\n", V(graph_Frey)$name),
+     vertex.shape = V(graph_Frey)$shape,
+     vertex.color = V(graph_Frey)$color, 
+     vertex.size = (V(graph_Frey)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.mode = E(graph_Frey)$arrow,
+     edge.arrow.size = 0.5,
+     edge.color = E(graph_Frey)$color,
+     edge.lty = E(graph_Frey)$lty)
+legend("topleft", legend = c(as.character(color_vertices$house), as.character(colors_edges$type)), pch = 19,
+       col = c(color_vertices$color, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+dev.off()
 ```
 
 ```{r fig.width=20, fig.height=10}
@@ -1201,50 +1299,12 @@ legend("topleft", legend = c(as.character(color_vertices$house), as.character(co
 dev.off()
 ```
 
-```{r fig.width=20, fig.height=10}
-characters_Frey <- characters %>%
-  filter(house == "House Frey")
 
-net_Frey <- net %>%
-  filter(source %in% characters_Frey$name | target %in% characters_Frey$name)
-
-net_Frey$lty <- "solid"
-net_Frey$arrow <- ifelse(net_Frey$type == "spouse", 3, 2)
-
-characters_Frey <- characters %>%
-  filter(name %in% net_Frey$source | name %in% net_Frey$target) %>%
-  arrange(name)
-
-graph_Frey <- graph_from_data_frame(net_Frey, directed = TRUE, vertices = characters_Frey)
-```
-
-```{r echo=FALSE, eval=FALSE}
-save(graph_Frey, file = "graph_Frey.RData")
-```
-
-```{r fig.width=20, fig.height=10}
-pdf("family_tree_Frey.pdf", width = 20, height = 15)
-plot(graph_Frey,
-     layout = layout_with_lgl,
-     vertex.label = gsub(" ", "\n", V(graph_Frey)$name),
-     vertex.shape = V(graph_Frey)$shape,
-     vertex.color = V(graph_Frey)$color, 
-     vertex.size = (V(graph_Frey)$popularity + 0.5) * 5, 
-     vertex.frame.color = "gray", 
-     vertex.label.color = "black", 
-     vertex.label.cex = 0.8,
-     edge.arrow.mode = E(graph_Frey)$arrow,
-     edge.arrow.size = 0.5,
-     edge.color = E(graph_Frey)$color,
-     edge.lty = E(graph_Frey)$lty)
-legend("topleft", legend = c(as.character(color_vertices$house), as.character(colors_edges$type)), pch = 19,
-       col = c(color_vertices$color, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
-dev.off()
-```
 
 ```{r}
 union_edges <- rbind(net_Arryn, 
                      net_Baratheon,
+                     net_Frey,
                      net_Greyjoy,
                      net_Lannister,
                      net_Martell,
@@ -1254,8 +1314,25 @@ union_edges <- rbind(net_Arryn,
                      net_Tyrell) %>%
   .[!duplicated(.), ]
 
+union_edges <- rbind(union_edges,
+                     c("Roose Bolton", "Ramsay Bolton", "father",	"#1B9E77", "solid",	2))
+
+union_edges1 <- union_edges[union_edges$type == "spouse", ]
+union_edges1$target <- union_edges[union_edges$type == "spouse", "source"]
+union_edges1$source <- union_edges[union_edges$type == "spouse", "target"]
+
+union_edges2 <- rbind(union_edges[union_edges$type != "spouse", ],
+                      union_edges[union_edges$type == "spouse", ],
+                      union_edges1)
+
+union_edges <- union_edges2 %>%
+  .[!duplicated(.), ]
+
+union_edges <- union_edges[, -ncol(union_edges)]
+
 union_characters <- rbind(characters_Arryn, 
                           characters_Baratheon,
+                          characters_Frey,
                           characters_Greyjoy,
                           characters_Lannister,
                           characters_Martell,
@@ -1263,7 +1340,9 @@ union_characters <- rbind(characters_Arryn,
                           characters_Targaryen,
                           characters_Tully,
                           characters_Tyrell) %>%
-  .[!duplicated(.), ]
+  .[!duplicated(.), ] 
+
+union_characters <- union_characters[, -c(6, 7)]
 
 save(union_edges, file = "union_edges.RData")
 save(union_characters, file = "union_characters.RData")
