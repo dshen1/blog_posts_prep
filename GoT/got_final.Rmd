@@ -1,11 +1,21 @@
 ---
 title: "Network analysis of Game of Thrones family ties"
-author: "Dr. Shirin Glander"
-date: "May 8, 2017"
-output: html_document
+author: "Shirin Glander"
+date: "`r Sys.Date()`"
+output:
+  md_document:
+    variant: markdown_github
 ---
 
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 1000)
+```
+
 In this post, I am exploring network analysis techniques in a family network of major characters from Game of Thrones.
+
+Not surprisingly, we learn that House Stark (specifically Ned and Sansa) and House Lannister (especially Tyrion) are the most important family connections in Game of Thrones; they also connect many of the storylines and are central parts of the narrative.
+
+
 
 <br>
 
@@ -33,8 +43,6 @@ These answers can give us a lot of information about the patterns of how people 
 
 The basis for this network is [Kaggle's Game of Throne dataset (character-deaths.csv)](https://www.kaggle.com/mylesoneill/game-of-thrones). Because most family relationships were missing in that dataset, I added the missing information in part by hand (based on [A Wiki of Ice and Fire](http://awoiaf.westeros.org/)) and by scraping information from [the Game of Thrones wiki](http://gameofthrones.wikia.com). You can find the full code for how I generated the network [on my Github page](https://github.com/ShirinG/blog_posts_prep/blob/master/GoT/got.Rmd).
 
-- add link to github
-
 ```{r warning=FALSE, message=FALSE}
 library(tidyverse)
 library(igraph)
@@ -48,7 +56,7 @@ load("union_characters.RData")
 
 <br>
 
-I am using **igraph** to plot the network. To do so, I first create the graph from the edge- and nodetable. An edgetable contains source and target nodes in the first two columns and optinally additional columns with edge attributes. Here, I have the type of interaction (mother, father or spouse), the color and linetype I want to assign to each edge.
+I am using **igraph** to plot the initial network. To do so, I first create the graph from the edge- and nodetable. An edgetable contains source and target nodes in the first two columns and optinally additional columns with edge attributes. Here, I have the type of interaction (mother, father or spouse), the color and linetype I want to assign to each edge.
 
 Because the books and the TV series differ slightly, I have introduced edges that are only supported or hinted at by the TV series and are not part of the original narrative in the books. These edges are marked by being dotted instead of solid. An additional color for edges with unspecified parental origin are introduced as well. Originally, these served for interactions that were extracted from character names (i.e. characters that ended with "... son/daughter of ...") and could either mean mother or father. Now, they show unclear parentage or cases where there are a biological and a de facto father, as in the case of Jon Snow.
 
@@ -56,7 +64,7 @@ Because the books and the TV series differ slightly, I have introduced edges tha
 head(union_edges)
 ```
 
-The nodetable contains one row for each character that is either a source or a target in the edgetable. We can give any number and type of node attribute but here, I chose 
+The nodetable contains one row for each character that is either a source or a target in the edgetable. We can give any number and type of node attributes. Here, I chose 
 the followin columns from the original Kaggle dataset: gender/male (male = 1, female = 0), house (as the house each character was born into) and popularity. House2 was meant to assign a color to only the major houses. Shape represents the gender.
 
 ```{r}
@@ -103,10 +111,15 @@ plot(union_graph,
      edge.arrow.size = 0.5,
      edge.color = E(union_graph)$color,
      edge.lty = E(union_graph)$lty)
-legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
-       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+legend("topleft", legend = c(NA, "Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 5, cex = 2, bty = "n", ncol = 1,
+       title = "") 
+legend("topleft", legend = "", cex = 4, bty = "n", ncol = 1,
+       title = "Game of Thrones Family Ties")
 dev.off()
 ```
+
+Click on the image to get to the high resolution pdf:
 
 ```{r fig.width=40, fig.height=40}
 plot(union_graph,
@@ -121,8 +134,11 @@ plot(union_graph,
      edge.arrow.size = 0.5,
      edge.color = E(union_graph)$color,
      edge.lty = E(union_graph)$lty)
-legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
-       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+legend("topleft", legend = c(NA, "Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 5, cex = 2, bty = "n", ncol = 1,
+       title = "") 
+legend("topleft", legend = "", cex = 4, bty = "n", ncol = 1,
+       title = "Game of Thrones Family Ties")
 ```
 
 Node color shows the major houses, node size the character's popularity and node shape their gender (square for male, circle for female). Edge color shows interaction type.
@@ -133,22 +149,26 @@ What we can see right away is that there are only limited connections between ho
 
 <br>
 
-How do we find out who the most important character(s) is/are in this network? We consider a character "important" if he has connections to many other characters.
+## Network analysis
 
-There are a few network properties, that tell us more about this. For most of them, I am considering the network as undirected to account for parent/child relationships as being mutual.
+How do we find out who the most important characters are in this network? 
+
+We consider a character "important" if he has connections to many other characters.
+There are a few network properties, that tell us more about this. For this, I am considering the network as undirected to account for parent/child relationships as being mutual.
 
 ```{r}
 union_graph_undir <- as.undirected(union_graph, mode = "collapse")
 ```
 
-
 <br>
 
 ### Centrality
 
-Centrality describes the number of edges that are in- or outgoing to/from nodes.
+[Centrality](https://en.wikipedia.org/wiki/Centrality) describes the number of edges that are in- or outgoing to/from nodes. High centrality networks have few nodes with many connections, low centrality networks have many nodes with similar numbers of edges.
 
 > "Centralization is a method for creating a graph level centralization measure from the centrality scores of the vertices." *centralize()* help
+
+For the whole network, we can calculate centrality by degree (`centr_degree()`), closeness (`centr_clo()`) or eigenvector centrality (`centr_eigen()`) of vertices.
 
 ```{r}
 centr_degree(union_graph_undir, mode = "total")$centralization
@@ -186,7 +206,7 @@ node_degree %>%
   .[1:10, ]
 ```
 
-In this case, the node degree tells us how many offspring and spouses a character had. With 3 wifes and several children, Quellon Greyjoy, the grandfather of Theon and Asha/Yara comes out on top (of course, had I included all offspring and wifes of Walder Frey's, he would easily be on top but the network would have gotten infintely more confusing).
+In this case, the node degree reflects how many offspring and spouses a character had. With 3 wifes and several children, Quellon Greyjoy, the grandfather of Theon and Asha/Yara comes out on top (of course, had I included all offspring and wifes of Walder Frey's, he would easily be on top but the network would have gotten infintely more confusing).
 
 ```{r echo=FALSE, eval=FALSE}
 hist(union_graph_undir_degree_std)
@@ -235,12 +255,14 @@ node_closeness %>%
   .[1:10, ]
 ```
 
+The characters with highest closeness all surround central characters that connect various storylines and houses in Game of Thrones.
+
 <br>
 
 ### Betweenness centrality
 
 Betweenness describes the number of shortest paths between nodes.
-Nodes with high betweenness centrality are on the path between many other nodes, i.e. they are people who are key connections or bridges between different groups of nodes. In a social network, these nodes would be very important e.g. as targets for advertisement, because they are likely to pass on information to a wide reach of people.
+Nodes with high betweenness centrality are on the path between many other nodes, i.e. they are people who are key connections or bridges between different groups of nodes. In a social network, these nodes would be very important because they are likely to pass on information to a wide reach of people.
 
 The **igraph** function *betweenness()* calculates vertex betweenness, *edge_betweenness()* calculates edge betweenness:
 
@@ -250,7 +272,7 @@ The **igraph** function *betweenness()* calculates vertex betweenness, *edge_bet
 betweenness <- igraph::betweenness(union_graph_undir, directed = FALSE)
 
 # standardize by number of node pairs
-betweenness_std <- betweenness / ((vcount(union_graph_undir) - 1) * (vcount(union_graph_undir) - 2))
+betweenness_std <- betweenness / ((vcount(union_graph_undir) - 1) * (vcount(union_graph_undir) - 2) / 2)
 
 node_betweenness <- data.frame(betweenness = betweenness,
                                betweenness_std = betweenness_std) %>%
@@ -275,6 +297,26 @@ data.frame(edge = attr(E(union_graph_undir), "vnames"),
 
 This, we can now plot by feeding the node betweenness as vertex.size and edge betweenness as edge.width to our plot function:
 
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("family_tree_GoT_betweenness.pdf", width = 35, height = 35)
+plot(union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.color = V(union_graph_undir)$color, 
+     vertex.size = betweenness * 0.001, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.width = edge_betweenness * 0.01,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph_undir)$color,
+     edge.lty = E(union_graph_undir)$lty)
+legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 5, cex = 2, bty = "n", ncol = 1)
+dev.off()
+```
+
 ```{r fig.width=35, fig.height=35}
 plot(union_graph_undir,
      layout = layout,
@@ -290,10 +332,10 @@ plot(union_graph_undir,
      edge.color = E(union_graph_undir)$color,
      edge.lty = E(union_graph_undir)$lty)
 legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
-       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 5, cex = 2, bty = "n", ncol = 1)
 ```
 
-Ned Stark is the character with highest betweenness. This makes sense, as he and his children have connections to many of the other houses and are the central points from which the story unfolds. However, we have to keep in mind here, that my choice of who is important enough to include in the network (e.g. the Stark ancestors) and who not (e.g. the whole complicated mess that is the Targaryen and Frey family tree) makes this result somewhat biased.
+Ned Stark is the character with highest betweenness. This makes sense, as he and his children (specifically Sansa and her arranged marriage to Tyrion) connect to other houses and are the central points from which the story unfolds. However, we have to keep in mind here, that my choice of who is important enough to include in the network (e.g. the Stark ancestors) and who not (e.g. the whole complicated mess that is the Targaryen and Frey family tree) makes this result somewhat biased.
 
 <br>
 
@@ -304,6 +346,8 @@ In contrast to the shortest path between two nodes, we can also calculate the lo
 ```{r}
 diameter(union_graph_undir, directed = FALSE)
 ```
+
+In our network, the longest path connects `r diameter(union_graph_undir, directed = FALSE)` nodes.
 
 > "get_diameter returns a path with the actual diameter. If there are many shortest paths of the length of the diameter, then it returns the first one found." *diameter()* help
 
@@ -335,7 +379,23 @@ plot(union_graph_undir_diameter,
      edge.arrow.size = 0.5,
      edge.lty = E(union_graph_undir_diameter)$lty)
 legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
-       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 2, cex = 1, bty = "n", ncol = 1)
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 5, cex = 2, bty = "n", ncol = 1)
+```
+
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("family_tree_GoT_diameter.pdf", width = 35, height = 35)
+plot(union_graph_undir_diameter,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir_diameter)$name),
+     vertex.shape = V(union_graph_undir_diameter)$shape,
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.size = 0.5,
+     edge.lty = E(union_graph_undir_diameter)$lty)
+legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 5, cex = 2, bty = "n", ncol = 1)
+dev.off()
 ```
 
 <br>
@@ -364,11 +424,13 @@ transitivity %>%
   .[1:10, ]
 ```
 
+Because ours is a family network, characters with a transitivity of one form triangles with their parents or offspring.
+
 <br>
 
 ### PageRank centrality
 
-PageRank (originally from Google) is similar to eigenvector centrality.
+[PageRank](https://en.wikipedia.org/wiki/Centrality#PageRank_centrality) (originally used by Google to rank the importance of search results) is similar to eigenvector centrality. Eigenvector centrality scores nodes in a network according to the number of connections to high-degree nodes they have. It is therefore a measure of node importance. PageRank similarly considers nodes as more important if they have many incoming edges (or links).
 
 ```{r}
 page_rank <- page.rank(union_graph_undir, directed = FALSE)
@@ -384,6 +446,8 @@ page_rank_centrality %>%
   .[1:10, ]
 ```
 
+Oberyn Martell, Quellon Greyjoy and Walder Frey all have the highest number of spouses, children and grandchildren are are therefore scored highest for PageRank.
+
 <br>
 
 ### Matrix representation of a network
@@ -398,7 +462,7 @@ adjacency <- as.matrix(as_adjacency_matrix(union_graph_undir))
 
 ### Eigenvector centrality
 
-We can also calculate the eigenvalues and eigenvectors of the adjacency matrix.
+We can now calculate the eigenvalues and eigenvectors of the adjacency matrix.
 
 ```{r}
 #degree diagonal matrix
@@ -419,9 +483,11 @@ eigenvector <- data.frame(name = rownames(pagerank),
 union_characters <- left_join(union_characters, eigenvector, by = "name")
 
 eigenvector %>%
-  arrange(-eigenvector) %>%
+  arrange(eigenvector) %>%
   .[1:10, ]
 ```
+
+Because of their highly connected family ties (i.e. there are only a handful of connections but they are almost all triangles), the Greyjoys have been scored with the highest eigenvalues.
 
 We can find the eigenvector centrality scores with:
 
@@ -429,7 +495,8 @@ We can find the eigenvector centrality scores with:
 eigen_centrality <- igraph::eigen_centrality(union_graph_undir, directed = FALSE)
 
 eigen_centrality <- data.frame(name = names(eigen_centrality$vector),
-           eigen_centrality = eigen_centrality$vector)
+           eigen_centrality = eigen_centrality$vector) %>%
+  mutate(name = as.character(name))
 
 union_characters <- left_join(union_characters, eigen_centrality, eigenvector, by = "name")
 
@@ -438,72 +505,43 @@ eigen_centrality %>%
   .[1:10, ]
 ```
 
+When we consider eigenvector centrality, Tywin and the core Lannister family score highest.
+
 <br>
 
-```{r}
-union_characters %>%
-  ggplot(aes(x = popularity, color = house2, fill = house2)) +
-    geom_density(alpha = 0.3) +
-    theme_bw()
-```
+### Who are the most important characters?
 
-```{r fig.width=10, fig.height=15}
+We can now compare all the node-level information to decide which characters are the most important in Game of Thrones. Such node level characterstics could also be used as input for machine learning algorithms.
+
+Let's look at all characters from the major houses:
+
+```{r fig.width=40, fig.height=20, warning=FALSE}
 union_characters %>%
-  filter(popularity > 0.75) %>%
+  filter(!is.na(house2)) %>%
   dplyr::select(-contains("_std")) %>%
   gather(x, y, degree:eigen_centrality) %>%
   ggplot(aes(x = name, y = y, color = house2)) +
     geom_point(size = 3) +
-    facet_wrap(~ x, ncol = 1, scales = "free") +
+    facet_grid(x ~ house2, scales = "free") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-<br>
-
-### Network properties
-
-We can, for example, feed our adjacency matrix to other functions, like *GenInd()* from the **NetIndices** packages. This function calculates a number of network properties, like number of compartments (N), total system throughput (T..), total system throughflow (TST), number of internal links (Lint), total number of links (Ltot), like density (LD), connectance (C), average link weight (Tijbar), average compartment throughflow (TSTbar) and compartmentalization or degree of connectedness of subsystems in the network (Cbar).
-
-```{r warning=FALSE, message=FALSE}
-library(NetIndices)
-graph.properties <- GenInd(adjacency)
-graph.properties
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("GoT_centrality.pdf", width = 40, height = 20)
+union_characters %>%
+  filter(!is.na(house2)) %>%
+  dplyr::select(-contains("_std")) %>%
+  gather(x, y, degree:eigen_centrality) %>%
+  ggplot(aes(x = name, y = y, color = house2)) +
+    geom_point(size = 3) +
+    facet_grid(x ~ house2, scales = "free") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+dev.off()
 ```
 
-<br>
-
-Alternatively, the **network** package provides additional functions to obtain network properties. Here, we can again feed in the adjacency matrix of our network.
-
-```{r warning=FALSE, message=FALSE}
-library(network)
-adj_network <- network(adjacency, directed = TRUE)
-```
-
-From this network object, we can e.g. get the number of dyads and edges within a network and the network size.
-
-```{r warning=FALSE, message=FALSE}
-adj_network
-network.dyadcount(adj_network)
-network.edgecount(adj_network)
-network.size(adj_network)
-```
-
-```{r warning=FALSE, message=FALSE, echo=FALSE, eval=FALSE}
-library(sna)
-library(rgl)
-gplot3d(adj_network, gmode = "digraph", displaylabels = TRUE, jitter = TRUE)
-
-geodist(adjacency)
-```
-
-From the **sna** package, we can e.g. use functions that tell us the graph density and the dyadic reciprocity of the vertices or edges
-
-```{r}
-gden(adjacency)
-grecip(adjacency)
-grecip(adjacency, measure = "edgewise")
-```
+Taken together, we could say that House Stark (specifically Ned and Sansa) and House Lannister (especially Tyrion) are the most important family connections in Game of Thrones.
 
 <br>
 
@@ -512,7 +550,7 @@ grecip(adjacency, measure = "edgewise")
 We can also analyze dyads (pairs of two nodes), triads (groups of three nodes) and bigger cliques in our network. For dyads, we can use the function *dyad_census()* from **igraph** or *dyad.census()* from **sna**. Both are identical and calculate a Holland and Leinhardt dyad census with
 
 - mut: The number of pairs with mutual connections (in our case, spouses).
-- asym: The number of pairs with non-mutual connections (in our case, mother-child and father-child relationships).
+- asym: The number of pairs with non-mutual connections (in the original network: mother-child and father-child relationships; but in the undirected network, there are none).
 - null: The number of pairs with no connection between them.
 
 ```{r}
@@ -520,7 +558,7 @@ We can also analyze dyads (pairs of two nodes), triads (groups of three nodes) a
 sna::dyad.census(adjacency)
 ```
 
-The same can be calculated for triads (see `?triad_census` for details on what each output means). While our original network was plotted as a directed network to show mother-child/father-child relationships as directional for plotting, it makes sense that we consider our network as undirected now that we want to analyze the network probabilities.
+The same can be calculated for triads (see `?triad_census` for details on what each output means).
 
 ```{r}
 #igraph::triad_census(union_graph_undir)
@@ -536,7 +574,9 @@ edge_kpath <- kpath.census(adjacency, maxlen = 5, mode = "graph", tabulate.by.ve
 edge_kpath
 ```
 
-```{r fig.width=20, fig.height=20}
+This, we could plot with (but here, it does not give much additional information):
+
+```{r fig.width=30, fig.height=30, eval=FALSE}
 gplot(node_kpath$paths.bydyad,
       label.cex = 0.5, 
       vertex.cex = 0.75,
@@ -545,12 +585,12 @@ gplot(node_kpath$paths.bydyad,
 ```
 
 ```{r}
-node_kcycle <- kcycle.census(adjacency, maxlen = 5, mode = "graph", tabulate.by.vertex = TRUE, cycle.comembership = "sum")
-edge_kcycle <- kcycle.census(adjacency, maxlen = 5, mode = "graph", tabulate.by.vertex = FALSE)
+node_kcycle <- kcycle.census(adjacency, maxlen = 8, mode = "graph", tabulate.by.vertex = TRUE, cycle.comembership = "sum")
+edge_kcycle <- kcycle.census(adjacency, maxlen = 8, mode = "graph", tabulate.by.vertex = FALSE)
 edge_kcycle
 ```
 
-```{r fig.width=15, fig.height=15}
+```{r fig.width=20, fig.height=20}
 node_kcycle_reduced <- node_kcycle$cycle.comemb
 node_kcycle_reduced <- node_kcycle_reduced[which(rowSums(node_kcycle_reduced) > 0), which(colSums(node_kcycle_reduced) > 0)]
 
@@ -559,6 +599,16 @@ gplot(node_kcycle_reduced,
       vertex.cex = 0.75,
       displaylabels = TRUE,
       edge.col = "grey")
+```
+
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("node_kcycle.pdf", width = 20, height = 20)
+gplot(node_kcycle_reduced,
+      label.cex = 0.5, 
+      vertex.cex = 0.75,
+      displaylabels = TRUE,
+      edge.col = "grey")
+dev.off()
 ```
 
 > "A (maximal) clique is a maximal set of mutually adjacenct vertices." *clique.census()* help
@@ -580,11 +630,23 @@ gplot(node_clique_reduced,
       edge.col = "grey")
 ```
 
-The largest group of nodes is:
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("node_clique.pdf", width = 15, height = 15)
+gplot(node_clique_reduced,
+      label.cex = 0.5, 
+      vertex.cex = 0.75,
+      displaylabels = TRUE,
+      edge.col = "grey")
+dev.off()
+```
 
-```{r fig.width=20, fig.height=20}
+The largest group of nodes ín this network is three, i.e. all parent/child relationships. Therefore, it does not really make sense to plot them all, but we could plot and color them with:
+
+```{r fig.width=20, fig.height=20, eval=FALSE}
 vcol <- rep("grey80", vcount(union_graph_undir))
-vcol[unlist(largest_cliques(union_graph_undir))] <- "red"
+
+# highlight first of largest cliques
+vcol[unlist(largest_cliques(union_graph_undir)[[1]])] <- "red"
 
 plot(union_graph_undir,
      layout = layout,
@@ -601,21 +663,17 @@ plot(union_graph_undir,
      edge.lty = E(union_graph_undir)$lty)
 ```
 
-<br>
+```{r echo=FALSE, eval=FALSE}
+# The number of connected components can again be calculated with both, **igraph** and **sna**.
 
-The number of connected components can again be calculated with both, **igraph** and **sna.
-
-```{r}
 # is our network strongly or weakly connected?
 igraph::is.connected(union_graph_undir, mode = "strong")
 igraph::is.connected(union_graph_undir, mode = "weak")
 
 igraph::count_components(union_graph_undir, mode = "strong")
 comp <- igraph::components(union_graph_undir, mode = "strong")
-head(groups(comp))
 
 comp_dist <- igraph::component_distribution(union_graph_undir, mode = "strong")
-comp_dist
 
 #sna::components(adjacency)
 ```
@@ -643,6 +701,8 @@ gplot(adjacency,
 
 ### Clustering
 
+We can also look for groups within our network by clustering node groups according to their edge betweenness:
+
 ```{r fig.width=20, fig.height=20}
 ceb <- cluster_edge_betweenness(union_graph_undir)
 modularity(ceb)
@@ -658,6 +718,22 @@ plot(ceb,
      vertex.label.cex = 0.8)
 ```
 
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("cluster_edge_betweenness.pdf", width = 20, height = 20)
+plot(ceb,
+     union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.size = (V(union_graph_undir)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8)
+dev.off()
+```
+
+Or based on propagating labels:
+
 ```{r fig.width=20, fig.height=20}
 clp <- cluster_label_prop(union_graph_undir)
 
@@ -672,18 +748,67 @@ plot(clp,
      vertex.label.cex = 0.8)
 ```
 
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("cluster_label_prop.pdf", width = 20, height = 20)
+plot(clp,
+     union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.size = (V(union_graph_undir)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8)
+dev.off()
+```
+
+<br>
+
+### Network properties
+
+We can also feed our adjacency matrix to other functions, like *GenInd()* from the **NetIndices** packages. This function calculates a number of network properties, like number of compartments (N), total system throughput (T..), total system throughflow (TST), number of internal links (Lint), total number of links (Ltot), like density (LD), connectance (C), average link weight (Tijbar), average compartment throughflow (TSTbar) and compartmentalization or degree of connectedness of subsystems in the network (Cbar).
+
+```{r warning=FALSE, message=FALSE}
+library(NetIndices)
+graph.properties <- GenInd(adjacency)
+graph.properties
+```
+
+<br>
+
+Alternatively, the **network** package provides additional functions to obtain network properties. Here, we can again feed in the adjacency matrix of our network and convert it to a network object.
+
+```{r warning=FALSE, message=FALSE}
+library(network)
+adj_network <- network(adjacency, directed = TRUE)
+adj_network
+```
+
+From this network object, we can e.g. get the number of dyads and edges within a network and the network size.
+
+```{r warning=FALSE, message=FALSE}
+network.dyadcount(adj_network)
+network.edgecount(adj_network)
+network.size(adj_network)
+```
+
 > "equiv.clust uses a definition of approximate equivalence (equiv.fun) to form a hierarchical clustering of network positions. Where dat consists of multiple relations, all specified relations are considered jointly in forming the equivalence clustering." *equiv.clust()* help
 
 ```{r fig.width=30, fig.height=10}
 ec <- equiv.clust(adj_network, mode = "graph", cluster.method = "average", plabels = network.vertex.names(adj_network))
-ec # The clustering
+ec
 ec$cluster$labels <- ec$plabels
-plot(ec) # Plot the dendrogram
+plot(ec)
 ```
 
-> "Given a set of equivalence classes (in the form of an equiv.clust object, hclust object, or membership vector) and one or more graphs, blockmodel will form a blockmodel of the input graph(s) based on the classes in question, using the specified block content type. [...] Unless a vector of classes is specified, blockmodel forms its eponymous models by using cutree to cut an equivalence clustering in the fashion specified by k and h. After forming clusters (roles), the input graphs are reordered and blockmodel reduction is applied." *blockmodel()* help
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("equiv_clust.pdf", width = 30, height = 10)
+plot(ec)
+dev.off()
+```
 
-```{r}
+```{r echo=FALSE, eval=FALSE}
+# > "Given a set of equivalence classes (in the form of an equiv.clust object, hclust object, or membership vector) and one or more graphs, blockmodel will form a blockmodel of the input graph(s) based on the classes in question, using the specified block content type. [...] Unless a vector of classes is specified, blockmodel forms its eponymous models by using cutree to cut an equivalence clustering in the fashion specified by k and h. After forming clusters (roles), the input graphs are reordered and blockmodel reduction is applied." *blockmodel()* help
 bm <- blockmodel(adj_network, ec, h = 5, plabels = network.vertex.names(adj_network))
 bm_bm <- bm$block.model
 bm_bm[is.nan(bm_bm)] <- 1
@@ -695,6 +820,22 @@ gplot(bm_bm,
       gmode = "graph", 
       vertex.sides = 50, 
       vertex.col = gray(1 - diag(bm_bm)))
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, eval=FALSE}
+library(sna)
+library(rgl)
+gplot3d(adj_network, gmode = "digraph", displaylabels = TRUE, jitter = TRUE)
+
+geodist(adjacency)
+```
+
+From the **sna** package, we can e.g. use functions that tell us the graph density and the dyadic reciprocity of the vertices or edges
+
+```{r}
+gden(adjacency)
+grecip(adjacency)
+grecip(adjacency, measure = "edgewise")
 ```
 
 ------------------
