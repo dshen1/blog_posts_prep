@@ -545,8 +545,8 @@ eigen_centrality %>%
     ## 1   Tywin Lannister        1.0000000
     ## 2  Cersei Lannister        0.9168980
     ## 3  Joanna Lannister        0.8358122
-    ## 4    Jeyne Marbrand        0.8190076
-    ## 5   Tytos Lannister        0.8190076
+    ## 4   Tytos Lannister        0.8190076
+    ## 5    Jeyne Marbrand        0.8190076
     ## 6   Genna Lannister        0.7788376
     ## 7   Jaime Lannister        0.7642870
     ## 8  Robert Baratheon        0.7087042
