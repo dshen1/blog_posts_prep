@@ -5,47 +5,37 @@ date: "May 12, 2017"
 output: html_document
 ---
 
-https://www.elastic.co/products/elasticsearch
+> "Elasticsearch is a distributed, RESTful search and analytics engine capable of solving a growing number of use cases. As the heart of the Elastic Stack, it centrally stores your data so you can discover the expected and uncover the unexpected." https://www.elastic.co/products/elasticsearch
 
 https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html
 
+https://www.elastic.co/webinars/getting-started-elasticsearch
+
+Elasticsearch is maintained by elastic and serves as a platform for fast (real-time) data analysis.
+
+The main components of the Elastic Stack are Kibana (UI) and Elasticsearch (storing, indexing and analyzing data).
+
+https://www.elastic.co/de/downloads/x-pack
+
+http://localhost:5601
+
+
+
 ---
 
-https://cran.r-project.org/web/packages/elasticsearchr/vignettes/quick_start.html
+## elasticsearchr: a Lightweight Elasticsearch Client for R by Alex Ioannides
 
-elasticsearchr: a Lightweight Elasticsearch Client for R
+> "The elasticsearchr package implements a simple Domain-Specific Language (DSL) for indexing, deleting, querying, sorting and aggregating data in Elasticsearch, from within R. The main purpose of this package is to remove the labour involved with assembling HTTP requests to Elasticsearch’s REST APIs and processing the responses. Instead, users of this package need only send and receive data frames to Elasticsearch resources. Users needing richer functionality are encouraged to investigate the excellent elastic package from the good people at rOpenSci." https://github.com/AlexIoannides/elasticsearchr/blob/master/README.md
 
-Alex Ioannides
+This package is available on CRAN or from his GitHub repository.
 
-2016-12-20
+```{r eval=FALSE}
+install.packages("elasticsearchr")
+```
 
-Elasticsearch is a distributed NoSQL document store search-engine and column-oriented database, whose fast (near real-time) reads and powerful aggregation engine make it an excellent choice as an ‘analytics database’ for R&D, production-use or both. Installation is simple, it ships with sensible default settings that allow it to work effectively out-of-the-box, and all interaction is made via a set of intuitive and extremely well documented RESTful APIs. I’ve been using it for two years now and I am evangelical.
-
-The elasticsearchr package implements a simple Domain-Specific Language (DSL) for indexing, deleting, querying, sorting and aggregating data in Elasticsearch, from within R. The main purpose of this package is to remove the labour involved with assembling HTTP requests to Elasticsearch’s REST APIs and processing the responses. Instead, users of this package need only send and receive data frames to Elasticsearch resources. Users needing richer functionality are encouraged to investigate the excellent elastic package from the good people at rOpenSci.
-
-This package is available on CRAN or from this GitHub repository. To install the latest development version from GitHub, make sure that you have the devtools package installed (this comes bundled with RStudio), and then execute the following on the R command line:
-
-devtools::install_github("alexioannides/elasticsearchr")
-Installing Elasticsearch
-
-Elasticsearch can be downloaded here, where the instructions for installing and starting it can also be found. OS X users (such as myself) can also make use of Homebrew to install it with the command,
-
-$ brew install elasticsearch
-And then start it by executing $ elasticsearch from within any Terminal window. Successful installation and start-up can be checked by navigating any web browser to http://localhost:9200, where the following message should greet you (give or take the cluster name that changes with every restart),
-
-{
-  "name" : "Kraven the Hunter",
-  "cluster_name" : "elasticsearch",
-  "version" : {
-    "number" : "2.3.5",
-    "build_hash" : "90f439ff60a3c0f497f91663701e64ccd01edbb4",
-    "build_timestamp" : "2016-07-27T10:36:52Z",
-    "build_snapshot" : false,
-    "lucene_version" : "5.5.0"
-  },
-  "tagline" : "You Know, for Search"
-}
-Elasticsearch 101
+```{r}
+library(elasticsearchr)
+```
 
 If you followed the installation steps above, you have just installed a single Elasticsearch ‘node’. When not testing on your laptop, Elasticsearch usually comes in clusters of nodes (usually there are at least 3). The easiest easy way to get access to a managed Elasticsearch cluster is by using the Elastic Cloud managed service provided by Elastic (note that Amazon Web Services offer something similar too). For the rest of this brief tutorial I will assuming you’re running a single node on your laptop (a great way of working with data that is too big for memory).
 
@@ -62,53 +52,64 @@ would be represented as follows using JSON,
   "petal_width": 0.2,
   "species": "setosa"
 }
+
 Documents are classified into ‘types’ and stored in an ‘index’. In a crude analogy with traditional SQL databases that is often used, we would associate an index with a database instance and the document types as tables within that database. In practice this example is not accurate - it is better to think of all documents as residing in a single - possibly sparse - table (defined by the index), where the document types represent non-unique sub-sets of columns in the table. This is especially so as fields that occur in multiple document types (within the same index), must have the same data-type - for example, if "name" exists in document type customer as well as in document type address, then "name" will need to be a string in both.
 
 Each document is considered a ‘resource’ that has a Uniform Resource Locator (URL) associated with it. Elasticsearch URLs all have the following format: http://your_cluster:9200/your_index/your_doc_type/your_doc_id. For example, the above iris document could be living at http://localhost:9200/iris/data/1 - you could even point a web browser to this location and investigate the document’s contents.
 
 Although Elasticsearch - like most NoSQL databases - is often referred to as being ‘schema free’, as we have already see this is not entirely correct. What is true, however, is that the schema - or ‘mapping’ as it’s called in Elasticsearch - does not need to be declared up-front (although you certainly can do this). Elasticsearch is more than capable of guessing the types of fields based on new data indexed for the first time.
 
-For more information on any of these basic concepts take a look here
-
-elasticsearchr: a Quick Start
-
 elasticsearchr is a lightweight client - by this I mean that it only aims to do ‘just enough’ work to make using Elasticsearch with R easy and intuitive. You will still need to read the Elasticsearch documentation to understand how to compose queries and aggregations. What follows is a quick summary of what is possible.
-
-Elasticsearch Data Resources
 
 Elasticsearch resources, as defined by the URLs described above, are defined as elastic objects in elasticsearchr. For example,
 
+```{r}
 es <- elastic("http://localhost:9200", "iris", "data")
-Refers to documents of type ‘data’ in the ‘iris’ index located on an Elasticsearch node on my laptop. Note that: - it is possible to leave the document type empty if you need to refer to all documents in an index; and, - elastic objects can be defined even if the underling resources have yet to be brought into existence.
+```
 
-Indexing New Data
+Refers to documents of type ‘data’ in the ‘iris’ index located on an Elasticsearch node on my laptop. Note that: - it is possible to leave the document type empty if you need to refer to all documents in an index; and, - elastic objects can be defined even if the underling resources have yet to be brought into existence.
 
 To index (insert) data from a data frame, use the %index% operator as follows:
 
+```{r}
 elastic("http://localhost:9200", "iris", "data") %index% iris
-In this example, the iris dataset is indexed into the ‘iris’ index and given a document type called ‘data’. Note that I have not provided any document ids here. To explicitly specify document ids there must be a column in the data frame that is labelled id, from which the document ids will be taken.
+```
 
-Deleting Data
+In this example, the iris dataset is indexed into the ‘iris’ index and given a document type called ‘data’. Note that I have not provided any document ids here. To explicitly specify document ids there must be a column in the data frame that is labelled id, from which the document ids will be taken.
 
 Documents can be deleted in three different ways using the %delete% operator. Firstly, an entire index (including the mapping information) can be erased by referencing just the index in the resource - e.g.,
 
+```{r}
 elastic("http://localhost:9200", "iris") %delete% TRUE
+```
+
 Alternatively, documents can be deleted on a type-by-type basis leaving the index and it’s mappings untouched, by referencing both the index and the document type as the resource - e.g.,
 
+```{r}
 elastic("http://localhost:9200", "iris", "data") %delete% TRUE
+```
+
 Finally, specific documents can be deleted by referencing their ids directly - e.g.,
 
+```{r}
 elastic("http://localhost:9200", "iris", "data") %delete% c("1", "2", "3", "4", "5")
-Queries
+```
 
 Any type of query that Elasticsearch makes available can be defined in a query object using the native Elasticsearch JSON syntax - e.g. to match every document we could use the match_all query,
 
+```{r}
 for_everything <- query('{
   "match_all": {}
 }')
+```
+
+
 To execute this query we use the %search% operator on the appropriate resource - e.g.,
 
+```{r}
 elastic("http://localhost:9200", "iris", "data") %search% for_everything
+```
+
 
 #     sepal_length sepal_width petal_length petal_width    species
 # 1            4.9         3.0          1.4         0.2     setosa
@@ -221,1092 +222,35 @@ A big thank you to Hadley Wickham and Jeroen Ooms, the authors of the httr and j
 
 https://ropensci.org/tutorials/elastic_tutorial.html
 
-
-HOME
-BLOG
-PACKAGES
-COMMUNITY
-DISCUSS
-CONTACT
-elastic tutorial
-for v0.6.0
-Installation
-Using the package
-Citing
-License and bugs
-elastic is an R client for Elasticsearch. This tutorial is an introduction to the package.
-Installation
-You can install from CRAN
+```{r eval=FALSE}
 install.packages("elastic")
-Or the development version from GitHub
-install.packages("devtools")
-devtools::install_github("ropensci/elastic")
-Then load the package
-library("elastic")
-Elasticsearch info
-Elasticsearch home page
-API docs
-Install Elasticsearch
-Elasticsearch installation help
-Unix (linux/osx)
-Replace 2.3.2 with the version you are working with.
-Download zip or tar file from Elasticsearch see here for download, e.g., curl -L -O https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-2.3.2.tar.gz
-Uncompress it: tar -xvf elasticsearch-2.3.2.tar.gz
-Move it: sudo mv elasticsearch-2.3.2 /usr/local
-Navigate to /usr/local: cd /usr/local
-Add shortcut: sudo ln -s elasticsearch-2.3.2 elasticsearch
-On OSX, you can install via Homebrew: brew install elasticsearch
-Windows
-Windows users can follow the above, but unzip the zip file instead of uncompressing the tar file.
-Start Elasticsearch
-Navigate to elasticsearch: cd /usr/local/elasticsearch
-Start elasticsearch: bin/elasticsearch
-I create a little bash shortcut called es that does both of the above commands in one step (cd /usr/local/elasticsearch && bin/elasticsearch).
-Note: Windows users should run the elasticsearch.bat file
+```
+
+```{r}
+library(elastic)
+```
+
 Initialize connection
 The function connect() is used before doing anything else to set the connection details to your remote or local elasticsearch store. The details created by connect() are written to your options for the current session, and are used by elastic functions.
+
+```{r}
 connect()
-#> transport:  http
-#> host:       127.0.0.1
-#> port:      9200
-#> headers (names):  NULL
-#> username:  NULL
-#> password:  NULL
-#> errors:    simple
-#> Elasticsearch (ES) details:
-#>    name:                    Ningal
-#>    ES version:              2.3.1
-#>    ES version timestamp:    2016-04-04T12:25:05Z
-#>    ES build hash:           bd980929010aef404e7cb0843e61d0665269fc39
-#>    lucene version:          5.5.0
+```
+
 On package load, your base url and port are set to http://127.0.0.1 and 9200, respectively. You can of course override these settings per session or for all sessions.
-Get some data
+
+
 Elasticsearch has a bulk load API to load data in fast. The format is pretty weird though. It's sort of JSON, but would pass no JSON linter. I include a few data sets in elastic so it's easy to get up and running, and so when you run examples in this package they'll actually run the same way (hopefully).
+
 I have prepared a non-exported function useful for preparing the weird format that Elasticsearch wants for bulk data loads (see below). See elastic:::make_bulk_plos and elastic:::make_bulk_gbif.
+
 Shakespeare data
 Elasticsearch provides some data on Shakespeare plays. I've provided a subset of this data in this package. Get the path for the file specific to your machine:
+
+```{r}
 shakespeare <- system.file("examples", "shakespeare_data.json", package = "elastic")
-Then load the data into Elasticsearch:
 docs_bulk(shakespeare)
-If you need some big data to play with, the shakespeare dataset is a good one to start with. You can get the whole thing and pop it into Elasticsearch (beware, may take up to 10 minutes or so.):
-curl -XGET http://www.elasticsearch.org/guide/en/kibana/current/snippets/shakespeare.json > shakespeare.json
-curl -XPUT localhost:9200/_bulk --data-binary @shakespeare.json
-Public Library of Science (PLOS) data
-A dataset inluded in the elastic package is metadata for PLOS scholarly articles. Get the file path, then load:
-plosdat <- system.file("examples", "plos_data.json", package = "elastic")
-docs_bulk(plosdat)
-Global Biodiversity Information Facility (GBIF) data
-A dataset inluded in the elastic package is data for GBIF species occurrence records. Get the file path, then load:
-gbifdat <- system.file("examples", "gbif_data.json", package = "elastic")
-docs_bulk(gbifdat)
-GBIF geo data with a coordinates element to allow geo_shape queries
-gbifgeo <- system.file("examples", "gbif_geo.json", package = "elastic")
-docs_bulk(gbifgeo)
-More data sets
-There are more datasets formatted for bulk loading in the ropensci/elastic_data GitHub repository. Find it at https://github.com/ropensci/elastic_data
-Search
-Search the plos index and only return 1 result
-Search(index="plos", size=1)$hits$hits
-#> [[1]]
-#> [[1]]$`_index`
-#> [1] "plos"
-#>
-#> [[1]]$`_type`
-#> [1] "article"
-#>
-#> [[1]]$`_id`
-#> [1] "0"
-#>
-#> [[1]]$`_score`
-#> [1] 1
-#>
-#> [[1]]$`_source`
-#> [[1]]$`_source`$id
-#> [1] "10.1371/journal.pone.0007737"
-#>
-#> [[1]]$`_source`$title
-#> [1] "Phospholipase C-β4 Is Essential for the Progression of the Normal Sleep Sequence and Ultradian Body Temperature Rhythms in Mice"
-Search the plos index, and the article document type, sort by title, and query for antibody, limit to 1 result
-Search(index="plos", type="article", sort="title", q="antibody", size=1)$hits$hits
-#> [[1]]
-#> [[1]]$`_index`
-#> [1] "plos"
-#>
-#> [[1]]$`_type`
-#> [1] "article"
-#>
-#> [[1]]$`_id`
-#> [1] "568"
-#>
-#> [[1]]$`_score`
-#> NULL
-#>
-#> [[1]]$`_source`
-#> [[1]]$`_source`$id
-#> [1] "10.1371/journal.pone.0085002"
-#>
-#> [[1]]$`_source`$title
-#> [1] "Evaluation of 131I-Anti-Angiotensin II Type 1 Receptor Monoclonal Antibody as a Reporter for Hepatocellular Carcinoma"
-#>
-#>
-#> [[1]]$sort
-#> [[1]]$sort[[1]]
-#> [1] "1"
-URL based search
-A new function in v0.4 is Search_uri(), where the search is defined entirely in the URL itself. This is especially useful for cases in which POST requests are forbidden, e.g, on a server that prevents POST requests for security reasons (which the function Search() uses)
-Basic search
-Search_uri(index = "plos", size = 1)$hits$hits
-#> [[1]]
-#> [[1]]$`_index`
-#> [1] "plos"
-#>
-#> [[1]]$`_type`
-#> [1] "article"
-#>
-#> [[1]]$`_id`
-#> [1] "0"
-#>
-#> [[1]]$`_score`
-#> [1] 1
-#>
-#> [[1]]$`_source`
-#> [[1]]$`_source`$id
-#> [1] "10.1371/journal.pone.0007737"
-#>
-#> [[1]]$`_source`$title
-#> [1] "Phospholipase C-β4 Is Essential for the Progression of the Normal Sleep Sequence and Ultradian Body Temperature Rhythms in Mice"
-Sorting
-res <- Search_uri(index = "shakespeare", type = "act", sort = "speaker:desc", fields = 'speaker')
-sapply(res$hits$hits, "[[", c("fields", "speaker"))
-#> [[1]]
-#> [1] "ARCHBISHOP OF YORK"
-#>
-#> [[2]]
-#> [1] "VERNON"
-#>
-#> [[3]]
-#> [1] "PLANTAGENET"
-#>
-#> [[4]]
-#> [1] "PETO"
-#>
-#> [[5]]
-#> [1] "KING HENRY IV"
-#>
-#> [[6]]
-#> [1] "HOTSPUR"
-#>
-#> [[7]]
-#> [1] "FALSTAFF"
-#>
-#> [[8]]
-#> [1] "CHARLES"
-#>
-#> [[9]]
-#> [1] ""
-A bool query
-mmatch <- '{
- "query": {
-   "bool" : {
-     "must_not" : {
-       "range" : {
-         "speech_number" : {
-           "from" : 1, "to": 5
-}}}}}}'
-sapply(Search(index="shakespeare", body=mmatch)$hits$hits, function(x) x$`_source`$speech_number)
-#>  [1]  6  7  7  7  7  8  9 10  7  8
-Fuzzy query
-Fuzzy query on numerics
-fuzzy <- list(query = list(fuzzy = list(speech_number = list(value = 7, fuzziness = 4))))
-Search(index="shakespeare", body=fuzzy)$hits$total
-#> [1] 1499
-Range query
-With numeric
-body <- list(query=list(range=list(decimalLongitude=list(gte=1, lte=3))))
-Search('gbif', body=body)$hits$total
-#> [1] 24
-With dates
-body <- list(query=list(range=list(eventDate=list(gte="2012-01-01", lte="now"))))
-Search('gbif', body=body)$hits$total
-#> [1] 899
-More-like-this query (more_like_this can be shortened to mlt)
-body <- '{
- "query": {
-   "more_like_this": {
-     "fields": ["abstract","title"],
-     "like_text": "and then",
-     "min_term_freq": 1,
-     "max_query_terms": 12
-   }
- }
-}'
-Search('plos', body=body)$hits$total
-#> [1] 488
-Highlighting
-body <- '{
- "query": {
-   "query_string": {
-     "query" : "cell"
-   }
- },
- "highlight": {
-   "fields": {
-     "title": {"number_of_fragments": 2}
-   }
- }
-}'
-out <- Search('plos', 'article', body=body)
-out$hits$total
-#> [1] 58
-sapply(out$hits$hits, function(x) x$highlight$title[[1]])[8:10]
-#> [[1]]
-#> NULL
-#>
-#> [[2]]
-#> NULL
-#>
-#> [[3]]
-#> NULL
-Scrolling search - instead of paging
-Search('shakespeare', q="a*")$hits$total
-#> [1] 2747
-res <- Search(index = 'shakespeare', q="a*", scroll="1m")
-res <- Search(index = 'shakespeare', q="a*", scroll="1m", search_type = "scan")
-length(scroll(scroll_id = res$`_scroll_id`)$hits$hits)
-#> [1] 50
-Bulk load from R objects
-A new feature in v0.4 is loading data into Elasticsearch via the bulk API (faster than via the normal route) from R objects (data.frame, or list). E.g.:
-Using a pretty large data.frame, at 53K rows, load ggplot2 package first
-library("ggplot2")
-res <- invisible(docs_bulk(diamonds, "diam"))
-Search(index = "diam")$hits$total
-#> [1] 158140
-Get documents
-Get document with id=1
-docs_get(index='plos', type='article', id=1)
-#> $`_index`
-#> [1] "plos"
-#>
-#> $`_type`
-#> [1] "article"
-#>
-#> $`_id`
-#> [1] "1"
-#>
-#> $`_version`
-#> [1] 1
-#>
-#> $found
-#> [1] TRUE
-#>
-#> $`_source`
-#> $`_source`$id
-#> [1] "10.1371/journal.pone.0098602"
-#>
-#> $`_source`$title
-#> [1] "Population Genetic Structure of a Sandstone Specialist and a Generalist Heath Species at Two Levels of Sandstone Patchiness across the Strait of Gibraltar"
-Get certain fields
-docs_get(index='plos', type='article', id=1, fields='id')
-#> $`_index`
-#> [1] "plos"
-#>
-#> $`_type`
-#> [1] "article"
-#>
-#> $`_id`
-#> [1] "1"
-#>
-#> $`_version`
-#> [1] 1
-#>
-#> $found
-#> [1] TRUE
-#>
-#> $fields
-#> $fields$id
-#> $fields$id[[1]]
-#> [1] "10.1371/journal.pone.0098602"
-Get multiple documents at once
-Same index and type, different document ids
-docs_mget(index="plos", type="article", id=3:4)
-#> $docs
-#> $docs[[1]]
-#> $docs[[1]]$`_index`
-#> [1] "plos"
-#>
-#> $docs[[1]]$`_type`
-#> [1] "article"
-#>
-#> $docs[[1]]$`_id`
-#> [1] "3"
-#>
-#> $docs[[1]]$`_version`
-#> [1] 1
-#>
-#> $docs[[1]]$found
-#> [1] TRUE
-#>
-#> $docs[[1]]$`_source`
-#> $docs[[1]]$`_source`$id
-#> [1] "10.1371/journal.pone.0107756"
-#>
-#> $docs[[1]]$`_source`$title
-#> [1] "The Effect of S-Adenosylmethionine on Cognitive Performance in Mice: An Animal Model Meta-Analysis"
-#>
-#>
-#>
-#> $docs[[2]]
-#> $docs[[2]]$`_index`
-#> [1] "plos"
-#>
-#> $docs[[2]]$`_type`
-#> [1] "article"
-#>
-#> $docs[[2]]$`_id`
-#> [1] "4"
-#>
-#> $docs[[2]]$`_version`
-#> [1] 1
-#>
-#> $docs[[2]]$found
-#> [1] TRUE
-#>
-#> $docs[[2]]$`_source`
-#> $docs[[2]]$`_source`$id
-#> [1] "10.1371/journal.pone.0107758"
-#>
-#> $docs[[2]]$`_source`$title
-#> [1] "Lactobacilli Inactivate Chlamydia trachomatis through Lactic Acid but Not H2O2"
-Different indeces, types, and ids
-docs_mget(index_type_id=list(c("plos","article",1), c("gbif","record",1)))$docs[[1]]
-#> $`_index`
-#> [1] "plos"
-#>
-#> $`_type`
-#> [1] "article"
-#>
-#> $`_id`
-#> [1] "1"
-#>
-#> $`_version`
-#> [1] 1
-#>
-#> $found
-#> [1] TRUE
-#>
-#> $`_source`
-#> $`_source`$id
-#> [1] "10.1371/journal.pone.0098602"
-#>
-#> $`_source`$title
-#> [1] "Population Genetic Structure of a Sandstone Specialist and a Generalist Heath Species at Two Levels of Sandstone Patchiness across the Strait of Gibraltar"
-Raw JSON data
-You can optionally get back raw json from Search(), docs_get(), and docs_mget() setting parameter raw=TRUE.
-For example:
-(out <- docs_mget(index="plos", type="article", id=5:6, raw=TRUE))
-#> [1] "{\"docs\":[{\"_index\":\"plos\",\"_type\":\"article\",\"_id\":\"5\",\"_version\":1,\"found\":true,\"_source\":{\"id\":\"10.1371/journal.pone.0085123\",\"title\":\"MiR-21 Is under Control of STAT5 but Is Dispensable for Mammary Development and Lactation\"}},{\"_index\":\"plos\",\"_type\":\"article\",\"_id\":\"6\",\"_version\":1,\"found\":true,\"_source\":{\"id\":\"10.1371/journal.pone.0098600\",\"title\":\"Correction: Designing Mixed Species Tree Plantations for the Tropics: Balancing Ecological Attributes of Species with Landholder Preferences in the Philippines\"}}]}"
-#> attr(,"class")
-#> [1] "elastic_mget"
-Then parse
-jsonlite::fromJSON(out)
-#> $docs
-#>   _index   _type _id _version found                   _source.id
-#> 1   plos article   5        1  TRUE 10.1371/journal.pone.0085123
-#> 2   plos article   6        1  TRUE 10.1371/journal.pone.0098600
-#>                                                                                                                                                     _source.title
-#> 1                                                                       MiR-21 Is under Control of STAT5 but Is Dispensable for Mammary Development and Lactation
-#> 2 Correction: Designing Mixed Species Tree Plantations for the Tropics: Balancing Ecological Attributes of Species with Landholder Preferences in the Philippines
-Citing
-Scott Chamberlain (2016). elastic: General Purpose Interface to Elasticsearch. R package version 0.6.0. http://cran.rstudio.com/package=elastic
-License and bugs
-License: MIT
-Report bugs at our GitHub repo for elastic
-Back to top
+```
 
-rOpenSci
-About
-
-About Us
-Leadership team
-Advisory board
-rOpenSci Community
-Careers
-Donate
-Work
-
-R Packages
-Blog
-Tech notes
-Tutorials
-Use cases
-Resources
-Other
-
-Contact
-rOpensci Discuss
-Events
-Related links
-GitHub Org
-Subscribe
-
-
-Email Address
-
- 
- 
- 
-  Except where otherwise noted, content on this site is licensed under the CC-BY license.
-
-Recology
-code and such
-HOME /ARCHIVES
-elastic - Elasticsearch from R
-JAN 29, 2015
-
-We’ve (ropensci) been working on an R client for interacting with Elasticsearch for a while now, first commit was November 2013.
-
-Elasticsearch is a document database built on the JVM. elastic interacts with the Elasticsearch HTTP API, and includes functions for setting connection details to Elasticsearch instances, loading bulk data, searching for documents with both HTTP query variables and JSON based body requests. In addition, elastic provides functions for interacting with APIs for indices, documents, nodes, clusters, an interface to the cat API, and more.
-
-Here’s a few examples of what you can do.
-
-Note: elastic was just pushed to CRAN. It just got accepted, so binaries may not be available, try again soon, or install from Github, or install from source from CRAN like install.packages("http://cran.r-project.org/src/contrib/elastic_0.3.0.tar.gz", repos=NULL, type="source").
-
-Installation
-install.packages("elastic")
-Or install development version:
-
-install.packages("devtools")
-devtools::install_github("ropensci/elastic")
-Then load package
-
-library("elastic")
-Install Elasticsearch
-Elasticsearch installation help
-Unix (linux/osx)
-
-Replace 1.4.1 with the version you are working with.
-
-Download zip or tar file from Elasticsearch see here for download, e.g., curl -L -O https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-1.4.1.tar.gz
-Uncompress it: tar -xvf elasticsearch-1.4.1.tar.gz
-Move it: sudo mv /path/to/elasticsearch-1.4.1 /usr/local
-Navigate to /usr/local: cd /usr/local
-Add shortcut: sudo ln -s elasticsearch-1.4.1 elasticsearch
-On OSX, you can install via Homebrew: brew install elasticsearch
-
-Windows
-
-Windows users can follow the above, but unzip the zip file instead of uncompressing the tar file.
-
-Start Elasticsearch
-Navigate to elasticsearch: cd /usr/local/elasticsearch
-Start elasticsearch: bin/elasticsearch
-I create a little bash shortcut called es that does both of the above commands in one step (cd /usr/local/elasticsearch && bin/elasticsearch).
-
-Note: Windows users should run the elasticsearch.bat file
-
-Initialize connection
-The function connect() is used before doing anything else to set the connection details to your remote or local elasticsearch store. The details created by connect() are written to your options for the current session, and are used by elastic functions.
-
-connect()
-On package load, your base url and port are set to http://127.0.0.1 and 9200, respectively. You can of course override these settings per session or for all sessions.
-
-Get data
-Elasticsearch has a bulk load API to load data in fast. The format is pretty weird though. It’s sort of JSON, but would pass no JSON linter. I include a few data sets in elastic so it’s easy to get up and running, and so when you run examples in this package they’ll actually run the same way (hopefully).
-
-Shakespeare data
-
-Elasticsearch provides some data on Shakespeare plays. I’ve provided a subset of this data in this package. Get the path for the file specific to your machine:
-
-shakespeare <- system.file("examples", "shakespeare_data.json", package = "elastic")
-Then load the data into Elasticsearch:
-
-docs_bulk(shakespeare)
-Public Library of Science (PLOS) data
-
-A dataset inluded in the elastic package is metadata for PLOS scholarly articles.
-
-plosdat <- system.file("examples", "plos_data.json", package = "elastic")
-docs_bulk(plosdat)
-Global Biodiversity Information Facility (GBIF) data
-
-A dataset inluded in the elastic package is data for GBIF species occurrence records. Get the file path, then load:
-
-gbifdat <- system.file("examples", "gbif_data.json", package = "elastic")
-docs_bulk(gbifdat)
-GBIF geo data with a coordinates element to allow geo_shape queries
-
-gbifgeo <- system.file("examples", "gbif_geo.json", package = "elastic")
-docs_bulk(gbifgeo)
-The Search function
-The main interface to searching documents in your Elasticsearch store is the function Search(). I nearly always develop R software using all lowercase, but R has a function called search(), and I wanted to avoid collision with that function.
-
-Search() is an interface to both the HTTP search API (in which queries are passed in the URI of the request, meaning queries have to be relatively simple), as well as the POST API, or the Query DSL, in which queries are passed in the body of the request (so can be much more complex).
-
-There are a huge amount of ways you can search Elasticsearch documents - this tutorial covers some of them, and highlights the ways in which you interact with the R outputs.
-
-Search an index
-
-out <- Search(index="shakespeare")
-out$hits$total
-#> [1] 5000
-out$hits$hits[[1]]
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "line"
-#> 
-#> $`_id`
-#> [1] "4"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $`_score`
-#> [1] 1
-#> 
-#> $`_source`
-#> $`_source`$line_id
-#> [1] 5
-#> 
-#> $`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> $`_source`$speech_number
-#> [1] 1
-#> 
-#> $`_source`$line_number
-#> [1] "1.1.2"
-#> 
-#> $`_source`$speaker
-#> [1] "KING HENRY IV"
-#> 
-#> $`_source`$text_entry
-#> [1] "Find we a time for frighted peace to pant,"
-Search an index by type
-
-Search(index="shakespeare", type="act")$hits$hits[[1]]
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "act"
-#> 
-#> $`_id`
-#> [1] "2227"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $`_score`
-#> [1] 1
-#> 
-#> $`_source`
-#> $`_source`$line_id
-#> [1] 2228
-#> 
-#> $`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> $`_source`$speech_number
-#> [1] 81
-#> 
-#> $`_source`$line_number
-#> [1] ""
-#> 
-#> $`_source`$speaker
-#> [1] "FALSTAFF"
-#> 
-#> $`_source`$text_entry
-#> [1] "ACT IV"
-Return certain fields
-
-Search(index="shakespeare", fields=c('play_name','speaker'))$hits$hits[[1]]
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "line"
-#> 
-#> $`_id`
-#> [1] "4"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $`_score`
-#> [1] 1
-#> 
-#> $fields
-#> $fields$speaker
-#> $fields$speaker[[1]]
-#> [1] "KING HENRY IV"
-#> 
-#> 
-#> $fields$play_name
-#> $fields$play_name[[1]]
-#> [1] "Henry IV"
-Sorting
-
-Search(index="shakespeare", type="act", sort="text_entry")$hits$hits[1:2]
-#> [[1]]
-#> [[1]]$`_index`
-#> [1] "shakespeare"
-#> 
-#> [[1]]$`_type`
-#> [1] "act"
-#> 
-#> [[1]]$`_id`
-#> [1] "2227"
-#> 
-#> [[1]]$`_version`
-#> [1] 1
-#> 
-#> [[1]]$`_score`
-#> NULL
-#> 
-#> [[1]]$`_source`
-#> [[1]]$`_source`$line_id
-#> [1] 2228
-#> 
-#> [[1]]$`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> [[1]]$`_source`$speech_number
-#> [1] 81
-#> 
-#> [[1]]$`_source`$line_number
-#> [1] ""
-#> 
-#> [[1]]$`_source`$speaker
-#> [1] "FALSTAFF"
-#> 
-#> [[1]]$`_source`$text_entry
-#> [1] "ACT IV"
-#> 
-#> 
-#> [[1]]$sort
-#> [[1]]$sort[[1]]
-#> [1] "act"
-#> 
-#> 
-#> 
-#> [[2]]
-#> [[2]]$`_index`
-#> [1] "shakespeare"
-#> 
-#> [[2]]$`_type`
-#> [1] "act"
-#> 
-#> [[2]]$`_id`
-#> [1] "2633"
-#> 
-#> [[2]]$`_version`
-#> [1] 1
-#> 
-#> [[2]]$`_score`
-#> NULL
-#> 
-#> [[2]]$`_source`
-#> [[2]]$`_source`$line_id
-#> [1] 2634
-#> 
-#> [[2]]$`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> [[2]]$`_source`$speech_number
-#> [1] 9
-#> 
-#> [[2]]$`_source`$line_number
-#> [1] ""
-#> 
-#> [[2]]$`_source`$speaker
-#> [1] "ARCHBISHOP OF YORK"
-#> 
-#> [[2]]$`_source`$text_entry
-#> [1] "ACT V"
-#> 
-#> 
-#> [[2]]$sort
-#> [[2]]$sort[[1]]
-#> [1] "act"
-Paging
-
-Search(index="shakespeare", size=1, from=1, fields='text_entry')$hits
-#> $total
-#> [1] 5000
-#> 
-#> $max_score
-#> [1] 1
-#> 
-#> $hits
-#> $hits[[1]]
-#> $hits[[1]]$`_index`
-#> [1] "shakespeare"
-#> 
-#> $hits[[1]]$`_type`
-#> [1] "line"
-#> 
-#> $hits[[1]]$`_id`
-#> [1] "9"
-#> 
-#> $hits[[1]]$`_version`
-#> [1] 1
-#> 
-#> $hits[[1]]$`_score`
-#> [1] 1
-#> 
-#> $hits[[1]]$fields
-#> $hits[[1]]$fields$text_entry
-#> $hits[[1]]$fields$text_entry[[1]]
-#> [1] "Nor more shall trenching war channel her fields,"
-Queries
-
-Using the q parameter you can pass in a query, which gets passed in the URI of the query. This type of query is less powerful than the below query passed in the body of the request, using the body parameter.
-
-Search(index="shakespeare", type="act", q="speaker:KING HENRY IV")$hits$total
-#> [1] 9
-Query DSL searches - queries sent in the body of the request
-
-Pass in as an R list
-
-aggs <- list(aggs = list(stats = list(terms = list(field = "text_entry"))))
-Search(index="shakespeare", body=aggs)$hits$hits[[1]]
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "line"
-#> 
-#> $`_id`
-#> [1] "4"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $`_score`
-#> [1] 1
-#> 
-#> $`_source`
-#> $`_source`$line_id
-#> [1] 5
-#> 
-#> $`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> $`_source`$speech_number
-#> [1] 1
-#> 
-#> $`_source`$line_number
-#> [1] "1.1.2"
-#> 
-#> $`_source`$speaker
-#> [1] "KING HENRY IV"
-#> 
-#> $`_source`$text_entry
-#> [1] "Find we a time for frighted peace to pant,"
-Or pass in as json query with newlines, easy to read
-
-aggs <- '{
-    "aggs": {
-        "stats" : {
-            "terms" : {
-                "field" : "text_entry"
-            }
-        }
-    }
-}'
-Search(index="shakespeare", body=aggs)$hits$hits[[1]]
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "line"
-#> 
-#> $`_id`
-#> [1] "4"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $`_score`
-#> [1] 1
-#> 
-#> $`_source`
-#> $`_source`$line_id
-#> [1] 5
-#> 
-#> $`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> $`_source`$speech_number
-#> [1] 1
-#> 
-#> $`_source`$line_number
-#> [1] "1.1.2"
-#> 
-#> $`_source`$speaker
-#> [1] "KING HENRY IV"
-#> 
-#> $`_source`$text_entry
-#> [1] "Find we a time for frighted peace to pant,"
-Or pass in collapsed json string
-
-aggs <- '{"aggs":{"stats":{"terms":{"field":"text_entry"}}}}'
-Search(index="shakespeare", body=aggs)$hits$hits[[1]]
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "line"
-#> 
-#> $`_id`
-#> [1] "4"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $`_score`
-#> [1] 1
-#> 
-#> $`_source`
-#> $`_source`$line_id
-#> [1] 5
-#> 
-#> $`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> $`_source`$speech_number
-#> [1] 1
-#> 
-#> $`_source`$line_number
-#> [1] "1.1.2"
-#> 
-#> $`_source`$speaker
-#> [1] "KING HENRY IV"
-#> 
-#> $`_source`$text_entry
-#> [1] "Find we a time for frighted peace to pant,"
-Fuzzy query
-
-Fuzzy query on numerics
-
-fuzzy <- list(query = list(fuzzy = list(speech_number = 7)))
-Search(index="shakespeare", body=fuzzy)$hits$total
-#> [1] 523
-fuzzy <- list(query = list(fuzzy = list(speech_number = list(value = 7, fuzziness = 4))))
-Search(index="shakespeare", body=fuzzy)$hits$total
-#> [1] 1499
-Range query
-
-With numeric
-
-body <- list(query=list(range=list(decimalLongitude=list(gte=1, lte=3))))
-Search('gbif', body=body)$hits$total
-#> [1] 24
-body <- list(query=list(range=list(decimalLongitude=list(gte=2.9, lte=10))))
-Search('gbif', body=body)$hits$total
-#> [1] 166
-With dates
-
-body <- list(query=list(range=list(eventDate=list(gte="2012-01-01", lte="now"))))
-Search('gbif', body=body)$hits$total
-#> [1] 899
-body <- list(query=list(range=list(eventDate=list(gte="2014-01-01", lte="now"))))
-Search('gbif', body=body)$hits$total
-#> [1] 685
-Highlighting
-
-body <- '{
- "query": {
-   "query_string": {
-     "query" : "cell"
-   }
- },
- "highlight": {
-   "fields": {
-     "title": {"number_of_fragments": 2}
-   }
- }
-}'
-out <- Search('plos', 'article', body=body)
-out$hits$total
-#> [1] 57
-sapply(out$hits$hits, function(x) x$highlight$title[[1]])[8:10]
-#> [1] "c-FLIP Protects Eosinophils from TNF-α-Mediated <em>Cell</em> Death In Vivo"                          
-#> [2] "DUSP1 Is a Novel Target for Enhancing Pancreatic Cancer <em>Cell</em> Sensitivity to Gemcitabine"     
-#> [3] "Carbon Ion Radiation Inhibits Glioma and Endothelial <em>Cell</em> Migration Induced by Secreted VEGF"
-Scrolling search - instead of paging
-
-Search('shakespeare', q="a*")$hits$total
-#> [1] 2747
-res <- Search(index = 'shakespeare', q="a*", scroll="1m")
-res <- Search(index = 'shakespeare', q="a*", scroll="1m", search_type = "scan")
-length(scroll(scroll_id = res$`_scroll_id`)$hits$hits)
-#> [1] 50
-res <- Search(index = 'shakespeare', q="a*", scroll="5m", search_type = "scan")
-out <- list()
-hits <- 1
-while(hits != 0){
-  res <- scroll(scroll_id = res$`_scroll_id`)
-  hits <- length(res$hits$hits)
-  if(hits > 0)
-    out <- c(out, res$hits$hits)
-}
-length(out)
-#> [1] 2747
-Woohoo! Collected all 2747 documents in very little time.
-
-The cat API
-List cat methods
-
-cat_()
-#> =^.^=
-#> /_cat/allocation
-#> /_cat/shards
-#> /_cat/shards/{index}
-#> /_cat/master
-#> /_cat/nodes
-#> /_cat/indices
-#> /_cat/indices/{index}
-#> /_cat/segments
-#> /_cat/segments/{index}
-#> /_cat/count
-#> /_cat/count/{index}
-#> /_cat/recovery
-#> /_cat/recovery/{index}
-#> /_cat/health
-#> /_cat/pending_tasks
-#> /_cat/aliases
-#> /_cat/aliases/{alias}
-#> /_cat/thread_pool
-#> /_cat/plugins
-#> /_cat/fielddata
-#> /_cat/fielddata/{fields}
-Get aliases
-
-cat_aliases()
-#> things plos - - - 
-#> stuff  plos - - -
-Get indices
-
-cat_indices()
-#> yellow open plosmore     5 1  1000  0   3.5mb   3.5mb 
-#> yellow open leotheadfadf 5 1     0  0    575b    575b 
-#> red    open alsothat     3 2                          
-#> yellow open gbif         5 1   899  0     1mb     1mb 
-#> yellow open gbifgeopoint 5 1     0  0    575b    575b 
-#> yellow open gbifnewgeo   5 1     2  0   5.8kb   5.8kb 
-#> yellow open plos         5 1  1202 39  14.2mb  14.2mb 
-#> yellow open leothedog    5 1     0  0    575b    575b 
-#> yellow open shakespeare  5 1  5000  0     1mb     1mb 
-#> yellow open gbifgeo      5 1   600  0 861.9kb 861.9kb 
-#> yellow open plosbigdata  5 1 20000  0  53.6mb  53.6mb 
-#> yellow open mapuris      5 1    31  0  34.4kb  34.4kb 
-#> yellow open leothelion   5 1     0  0    575b    575b
-Get nodes
-
-cat_nodes()
-#> Scotts-MacBook-Pro.local 192.168.1.104 6 79 3.44 d * Hellfire
-Work with indices
-out <- index_get(index='shakespeare')
-names(out$shakespeare$mappings)
-#> [1] "line"  "scene" "act"
-Check for index existence
-
-index_exists(index='shakespeare')
-#> [1] TRUE
-Delete an index
-
-index_delete(index='plos')
-#> $acknowledged
-#> [1] TRUE
-Create an index
-
-index_create(index='twitter')
-#> $acknowledged
-#> [1] TRUE
-Work with documents
-Get a document
-
-docs_get(index='shakespeare', type='line', id=10)
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "line"
-#> 
-#> $`_id`
-#> [1] "10"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $found
-#> [1] TRUE
-#> 
-#> $`_source`
-#> $`_source`$line_id
-#> [1] 11
-#> 
-#> $`_source`$play_name
-#> [1] "Henry IV"
-#> 
-#> $`_source`$speech_number
-#> [1] 1
-#> 
-#> $`_source`$line_number
-#> [1] "1.1.8"
-#> 
-#> $`_source`$speaker
-#> [1] "KING HENRY IV"
-#> 
-#> $`_source`$text_entry
-#> [1] "Nor bruise her flowerets with the armed hoofs"
-Get certain fields
-
-docs_get(index='shakespeare', type='line', id=10, fields=c('play_name','speaker'))
-#> $`_index`
-#> [1] "shakespeare"
-#> 
-#> $`_type`
-#> [1] "line"
-#> 
-#> $`_id`
-#> [1] "10"
-#> 
-#> $`_version`
-#> [1] 1
-#> 
-#> $found
-#> [1] TRUE
-#> 
-#> $fields
-#> $fields$play_name
-#> $fields$play_name[[1]]
-#> [1] "Henry IV"
-#> 
-#> 
-#> $fields$speaker
-#> $fields$speaker[[1]]
-#> [1] "KING HENRY IV"
-Test for existence of the document
-
-docs_get(index='plos', type='article', id=1, exists=TRUE)
-#> [1] FALSE
-docs_get(index='plos', type='article', id=123456, exists=TRUE)
-#> [1] FALSE
-Thats it
-Let us know if you have any feedback!
-
-« binomen - taxonomic classes and parsing
-httping - ping and time http requests »
-Scott Chamberlain
-
-Theme: Gravity
-Made with  on { { Jekyll } }
- sckott
- sckottie
-code and such  
 
 
