@@ -17,9 +17,16 @@ The main components of the Elastic Stack are Kibana (UI) and Elasticsearch (stor
 
 https://www.elastic.co/de/downloads/x-pack
 
+**Kibana**
+cd kibana-5.4.0-darwin-x86_64
+bin/kibana
 http://localhost:5601
 
-
+**Elastisearch**
+cd elasticsearch-5.4.0
+bin/elasticsearch
+http://localhost:2900
+127.0.0.1:9200
 
 ---
 
@@ -64,7 +71,7 @@ elasticsearchr is a lightweight client - by this I mean that it only aims to do 
 Elasticsearch resources, as defined by the URLs described above, are defined as elastic objects in elasticsearchr. For example,
 
 ```{r}
-es <- elastic("http://localhost:9200", "iris", "data")
+es <- elastic("http://127.0.0.1:9200", "iris", "data")
 ```
 
 Refers to documents of type ‘data’ in the ‘iris’ index located on an Elasticsearch node on my laptop. Note that: - it is possible to leave the document type empty if you need to refer to all documents in an index; and, - elastic objects can be defined even if the underling resources have yet to be brought into existence.
@@ -72,27 +79,27 @@ Refers to documents of type ‘data’ in the ‘iris’ index located on an Ela
 To index (insert) data from a data frame, use the %index% operator as follows:
 
 ```{r}
-elastic("http://localhost:9200", "iris", "data") %index% iris
+elastic("http://127.0.0.1:9200", "iris", "data") %index% iris
 ```
 
 In this example, the iris dataset is indexed into the ‘iris’ index and given a document type called ‘data’. Note that I have not provided any document ids here. To explicitly specify document ids there must be a column in the data frame that is labelled id, from which the document ids will be taken.
 
 Documents can be deleted in three different ways using the %delete% operator. Firstly, an entire index (including the mapping information) can be erased by referencing just the index in the resource - e.g.,
 
-```{r}
-elastic("http://localhost:9200", "iris") %delete% TRUE
+```{r eval=FALSE}
+elastic("http://127.0.0.1:9200", "iris") %delete% TRUE
 ```
 
 Alternatively, documents can be deleted on a type-by-type basis leaving the index and it’s mappings untouched, by referencing both the index and the document type as the resource - e.g.,
 
-```{r}
-elastic("http://localhost:9200", "iris", "data") %delete% TRUE
+```{r eval=FALSE}
+elastic("http://127.0.0.1:9200", "iris", "data") %delete% TRUE
 ```
 
 Finally, specific documents can be deleted by referencing their ids directly - e.g.,
 
-```{r}
-elastic("http://localhost:9200", "iris", "data") %delete% c("1", "2", "3", "4", "5")
+```{r eval=FALSE}
+elastic("http://127.0.0.1:9200", "iris", "data") %delete% c("1", "2", "3", "4", "5")
 ```
 
 Any type of query that Elasticsearch makes available can be defined in a query object using the native Elasticsearch JSON syntax - e.g. to match every document we could use the match_all query,
@@ -107,39 +114,26 @@ for_everything <- query('{
 To execute this query we use the %search% operator on the appropriate resource - e.g.,
 
 ```{r}
-elastic("http://localhost:9200", "iris", "data") %search% for_everything
+elastic("http://127.0.0.1:9200", "iris", "data") %search% for_everything
 ```
 
 
-#     sepal_length sepal_width petal_length petal_width    species
-# 1            4.9         3.0          1.4         0.2     setosa
-# 2            4.9         3.1          1.5         0.1     setosa
-# 3            5.8         4.0          1.2         0.2     setosa
-# 4            5.4         3.9          1.3         0.4     setosa
-# 5            5.1         3.5          1.4         0.3     setosa
-# 6            5.4         3.4          1.7         0.2     setosa
-# ...
 Sorting Query Results
 
 Query results can be sorted on multiple fields by defining a sort object using the same Elasticsearch JSON syntax - e.g. to sort by sepal_width in ascending order the required sort object would be defined as,
 
-by_sepal_width <- sort_on('{"sepal_width": {"order": "asc"}}')
 This is then added to a query object whose results we want sorted and executed using the %search% operator as before - e.g.,
 
-elastic("http://localhost:9200", "iris", "data") %search% (for_everything + by_sepal_width)
+```{r}
+by_sepal_width <- sort_on('{"sepal_width": {"order": "asc"}}')
+elastic("http://127.0.0.1:9200", "iris", "data") %search% (for_everything + by_sepal_width)
+```
 
-#   sepal_length sepal_width petal_length petal_width    species
-# 1          5.0         2.0          3.5         1.0 versicolor
-# 2          6.0         2.2          5.0         1.5  virginica
-# 3          6.0         2.2          4.0         1.0 versicolor
-# 4          6.2         2.2          4.5         1.5 versicolor
-# 5          4.5         2.3          1.3         0.3     setosa
-# 6          6.3         2.3          4.4         1.3 versicolor
-# ...
 Aggregations
 
 Similarly, any type of aggregation that Elasticsearch makes available can be defined in an aggs object - e.g. to compute the average sepal_width per-species of flower we would specify the following aggregation,
 
+```{r}
 avg_sepal_width <- aggs('{
   "avg_sepal_width_per_species": {
     "terms": {
@@ -155,11 +149,16 @@ avg_sepal_width <- aggs('{
     }
   }
 }')
+```
+
 (Elasticsearch 5.x users please note that when using the out-of-the-box mappings the above aggregation requires that "field": "species" be changed to "field": "species.keyword" - see here for more information as to why)
 
 This aggregation is also executed via the %search% operator on the appropriate resource - e.g.,
 
-elastic("http://localhost:9200", "iris", "data") %search% avg_sepal_width
+```{r}
+elastic("http://127.0.0.1:9200", "iris", "data") %search% avg_sepal_width
+```
+
 
 #          key doc_count avg_sepal_width.value
 # 1     setosa        50                 3.428
