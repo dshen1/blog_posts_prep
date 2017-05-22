@@ -1,12 +1,3 @@
----
-title: "New R Users group in Münster!"
-author: "Dr. Shirin Glander"
-date: "May 19, 2017"
-output:
-  md_document:
-    variant: markdown_github
----
-
 This is to announce that Münster now has its very own R users group!
 
 ![](map.png)
@@ -21,7 +12,7 @@ You can find us on [meetup.com: https://www.meetup.com/Munster-R-Users-Group/](h
 
 Code for the logo, which of course has been created in R:
 
-```{r warning=FALSE, message=FALSE, eval=FALSE}
+``` r
 library(ggplot2)
 library(ggmap)
 library(ggthemes)
