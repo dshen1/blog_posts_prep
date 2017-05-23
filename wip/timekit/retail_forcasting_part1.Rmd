@@ -157,7 +157,7 @@ retail %>%
 ```{r fig.width=8, fig.height=5}
 retail %>%
   ggplot(aes(x = time, y = day)) +
-    stat_binhex(alpha = 0.8, bins = 25, color = "white") +
+    stat_bin2d(alpha = 0.8, bins = 25, color = "white") +
     scale_fill_gradientn(colours = c(palette_light()[[1]], palette_light()[[2]])) +
     theme_tq() +
     theme(legend.position = "right") +

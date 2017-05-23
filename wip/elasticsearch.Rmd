@@ -85,6 +85,7 @@ Elasticsearch resources, as defined by the URLs described above, are defined as 
 
 ```{r}
 es <- elastic("http://127.0.0.1:9200", "iris", "data")
+es <- elastic("http://localhost:9200", "iris", "data")
 ```
 
 Refers to documents of type ‘data’ in the ‘iris’ index located on an Elasticsearch node on my laptop. Note that: - it is possible to leave the document type empty if you need to refer to all documents in an index; and, - elastic objects can be defined even if the underling resources have yet to be brought into existence.
@@ -93,6 +94,7 @@ To index (insert) data from a data frame, use the %index% operator as follows:
 
 ```{r}
 elastic("http://127.0.0.1:9200", "iris", "data") %index% iris
+elastic("http://localhost:9200", "iris", "data") %index% iris
 ```
 
 In this example, the iris dataset is indexed into the ‘iris’ index and given a document type called ‘data’. Note that I have not provided any document ids here. To explicitly specify document ids there must be a column in the data frame that is labelled id, from which the document ids will be taken.
