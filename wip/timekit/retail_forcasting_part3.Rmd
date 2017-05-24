@@ -1,0 +1,400 @@
+---
+title: "Data Science for Business - Time Series Forcasting Part 3: Forcasting"
+author: "Dr. Shirin Glander"
+date: "May 22, 2017"
+output: html_document
+---
+
+https://cran.r-project.org/web/packages/timekit/index.html
+
+```{r}
+library(tidyverse)
+library(tidyquant)
+library(broom)
+library(timekit)
+```
+
+```{r echo=FALSE}
+load("retail_p_day.RData")
+```
+
+The time series signature is a collection of useful features that describe the time series index of a time-based data set. It contains a wealth of features that can be used to forecast time series that contain patterns. In this vignette, the user will learn methods to implement machine learning to predict future outcomes in a time-based data set. The vignette example uses a well known time series dataset, the Bike Sharing Dataset, from the UCI Machine Learning Repository. The vignette follows an example where we’ll use timekit to build a basic Machine Learning model to predict future values using the time series signature. The objective is to build a model and predict the next six months of Bike Sharing daily counts.
+
+```{r}
+retail_p_day <- retail_p_day %>%
+  mutate(model = ifelse(day <= "2011-11-01", "train", "test"))
+```
+
+```{r fig.width=8, fig.height=3}
+retail_p_day %>%
+  ggplot(aes(x = day, y = sum_income, color = model)) +
+    geom_point(alpha = 0.5) +
+    geom_line(alpha = 0.5) +
+    scale_color_manual(values = palette_light()) +
+    theme_tq()
+```
+
+```{r}
+train <- filter(retail_p_day, model == "train") %>%
+  select(day, sum_income) %>%
+  rename(date = day)
+
+test <- filter(retail_p_day, model == "test") %>%
+  select(day, sum_income) %>%
+  rename(date = day)
+```
+
+The first step is to add the time series signature to the training set, which will be used this to learn the patterns. The most efficient method is using tk_augment_timeseries_signature(), which adds the columns we need as additional columns.
+
+```{r}
+# Add time series signature
+train_augmented <- train %>%
+    tk_augment_timeseries_signature()
+train_augmented
+
+test_augmented <- test %>%
+    tk_augment_timeseries_signature()
+```
+
+Now that we have a number of fields that can be used for training, we can use these for modeling. In practice, you will want to go through the process of pre-processing the data, centering and scaling if necessary, making dummy variables, removing correlated variables that are present, examining interactions, etc. For brevity, we do not do this here.
+
+```{r}
+# Model using the augmented features
+fit_lm <- lm(sum_income ~ ., data = train_augmented)
+```
+
+```{r}
+# Visualize the residuals of training set
+fit_lm %>%
+    augment() %>%
+    ggplot(aes(x = date, y = .resid)) +
+    geom_hline(yintercept = 0, color = "red") +
+    geom_point(color = palette_light()[[1]], alpha = 0.5) +
+    theme_tq() +
+    labs(title = "Training Set: lm() Model Residuals", x = "") +
+    scale_y_continuous(limits = c(-5000, 5000))
+```
+
+We can also get a quick idea of the overall error of the model on the training set. Note that what we really care about is the error on the test set, as this is a much better predictor of future model performance.
+
+```{r}
+# RMSE
+sqrt(mean(fit_lm$residuals^2))
+```
+
+```{r}
+yhat_test <- predict(fit_lm, newdata = test_augmented)
+```
+
+Add the predictions (use add_column for numeric vectors) to the test set for comparison. Additionally, we can add the residuals using mutate(), which enables performing calculations between columns of a data frame.
+
+```{r}
+pred_test <- test %>%
+    add_column(yhat = yhat_test) %>%
+    mutate(.resid = sum_income - yhat)
+pred_test
+```
+
+```{r}
+pred_test %>%
+  gather(x, y, sum_income:yhat) %>%
+  ggplot(aes(x = date, y = y, color = x)) +
+    geom_point(alpha = 0.5) +
+    geom_line(alpha = 0.5) +
+    scale_color_manual(values = palette_light()) +
+    theme_tq()
+```
+
+The forecast accuracy can be evaluated on the test set using residual diagnostics and forecast accuracy measures.
+
+```{r}
+# Calculating forecast error
+test_residuals <- pred_test$.resid
+pct_err <- test_residuals/pred_test$sum_income * 100 # Percentage error
+
+me   <- mean(test_residuals, na.rm=TRUE)
+rmse <- mean(test_residuals^2, na.rm=TRUE)^0.5
+mae  <- mean(abs(test_residuals), na.rm=TRUE)
+mape <- mean(abs(pct_err), na.rm=TRUE)
+mpe  <- mean(pct_err, na.rm=TRUE)
+
+error_tbl <- tibble(me, rmse, mae, mape, mpe)
+error_tbl
+```
+
+Next we can visualize the residuals of the test set. The residuals of the model aren’t perfect, but we can work with it. The residuals show that the model predicts low in October and high in December.
+
+```{r}
+ggplot(aes(x = date, y = .resid), data = pred_test) +
+    geom_hline(yintercept = 0, color = "red") +
+    geom_point(color = palette_light()[[1]], alpha = 0.5) +
+    geom_smooth() +
+    theme_tq() +
+    labs(title = "Test Set: lm() Model Residuals", x = "")
+```
+
+At this point you might go back to the model and try tweaking features using interactions or polynomial terms, adding other features that may be known in the future (e.g. temperature of day can be forecasted relatively accurately within 7 days), or try a completely different modeling technique with the hope of better predictions on the test set. Once you feel that your model is optimized, move on the final step of forecasting.
+
+Forecasting
+
+Let’s use our model to predict What are the expected future values for the next six months. The first step is to create the date sequence. Let’s use tk_get_timeseries_summary() to review the summary of the dates from the original dataset, “bikes”.
+
+```{r}
+# Extract bikes index
+idx <- retail_p_day %>%
+    tk_index()
+
+# Get time series summary from index
+retail_p_day_summary <- idx %>%
+    tk_get_timeseries_summary()
+```
+
+The first six parameters are general summary information.
+
+The second six parameters are the periodicity information.
+
+From the summary, we know that the data is 100% regular because the median and mean differences are 86400 seconds or 1 day. We don’t need to do any special inspections when we use tk_make_future_timeseries(). If the data was irregular, meaning weekends or holidays were excluded, you’d want to account for this. Otherwise your forecast would be inaccurate.
+
+```{r}
+idx_future <- idx %>%
+    tk_make_future_timeseries(n_future = 180)
+```
+
+To make the prediction, we need to use the future index to get the time series signature (tk_get_timeseries_signature()). Make sure to rename the column “index” to “date” so it matches the column names of the original data.
+
+```{r}
+data_future <- idx_future %>%
+    tk_get_timeseries_signature() %>%
+    rename(date = index) %>%
+  filter(wday.lbl != "Saturday")
+
+#Make the prediction.
+
+pred_future <- predict(fit_lm, newdata = data_future)
+
+#Build the future data frame.
+
+pred_future <- data_future %>%
+    select(date) %>%
+    add_column(sum_income = pred_future)
+```
+
+```{r}
+retail_p_day %>%
+  select(day, sum_income) %>%
+  rename(date = day) %>%
+  rbind(pred_future) %>%
+  ggplot(aes(x = date, y = sum_income)) +
+    scale_x_date() +
+    geom_vline(xintercept = as.numeric(max(retail_p_day$day)), color = "red", size = 1) +
+    geom_point(alpha = 0.5) +
+    geom_line(alpha = 0.5) +
+    theme_tq()
+```
+
+A forecast is never perfect. We need prediction intervals to account for the variance from the model predictions to the actual data. There’s a number of methods to achieve this. We’ll follow the prediction interval methodology from Forecasting: Principles and Practice.
+
+```{r}
+# Calculate standard deviation of residuals
+test_resid_sd <- sd(test_residuals, na.rm = TRUE)
+
+pred_future <- pred_future %>%
+    mutate(
+        lo.95 = sum_income - 1.96 * test_resid_sd,
+        lo.80 = sum_income - 1.28 * test_resid_sd,
+        hi.80 = sum_income + 1.28 * test_resid_sd,
+        hi.95 = sum_income + 1.96 * test_resid_sd
+        )
+```
+
+```{r}
+retail_p_day %>%
+  select(day, sum_income) %>%
+  rename(date = day) %>%
+  ggplot(aes(x = date, y = sum_income)) +
+    geom_point(alpha = 0.5) +
+    geom_line(alpha = 0.5) +
+    geom_ribbon(aes(ymin = lo.95, ymax = hi.95), data = pred_future, 
+                fill = "#D5DBFF", color = NA, size = 0) +
+    geom_ribbon(aes(ymin = lo.80, ymax = hi.80, fill = key), data = pred_future,
+                fill = "#596DD5", color = NA, size = 0, alpha = 0.8) +
+    geom_point(aes(x = date, y = sum_income), data = pred_future,
+               alpha = 0.5, color = palette_light()[[2]]) +
+    geom_smooth(aes(x = date, y = sum_income), data = pred_future,
+                method = 'loess', color = "white") +
+    theme_tq()
+```
+
+Forecasting using the time series signature can be very accurate especially when time-based patterns are present in the underlying data. As with most machine learning applications, the prediction is only as good as the patterns in the data. Forecasting using this approach may not be suitable when patterns are not present or when the future is highly uncertain (i.e. past is not a suitable predictor of future performance). However, in may situations the time series signature can provide an accurate forecast.
+
+One benefit to the machine learning approach that was not covered in this vignette but is an significant advantage is that other features (including non-time-based) can be included in the analysis if the values are present in the training and test sets and can be determined with some level of accuracy in the future. For example, one can expect that experts in Bike Sharing analytics have access to historical temperature and weather patterns, wind speeds, and so on that could have a significant affect on bicycle sharing. The beauty of this method is these features can easily be incorporated into the model and prediction.
+
+Last, a few points on the modeling process. Important modeling steps such as pre-processing data, removing correlated features, and so on where not addressed or included in this vignette. The astute modeler would certainly review the data and processing accordingly to achieve an optimal model.
+
+
+The time series index, which consists of a collection of time-based values that define when each observation occurred, is the most important part of a time series object. The index gives the user a lot of information in a simple timestamp. Consider the datetime “2016-01-01 00:00:00”. From this timestamp, we can decompose the datetime to get the signature, which consists of the year, quarter, month, day, day of year, day of month, hour, minute, and second of the occurrence of a single observation. Further, the difference between two or more observations is the frequency from which we can obtain even more information such as the periodicity of the data and whether or not these observations are on a regular interval. This information is critical as it provides the basis for performance over time in finance, decay rates in biology, growth rates in economics, and so on.
+
+In this vignette the user will be exposed to the time series index, tools to gain insights and work with it, and methods to work with time series data in general. The user will see several functions that can help to efficiently extract and analyze a time series index. Further, the user will see how to decompose an index (i.e. create a signature) and how to efficiently add the signature to a time series object (tbl with time basis, xts or zoo objects). In addition, the user will learn about summary metrics.
+
+The index can be decomposed into a signature. The time series signature is a unique set of properties of the time series values that describe the time series. The function tk_get_timeseries_signature() can be used to convert the index to a tibble containing the following values (columns):
+
+index: The index value that was decomposed
+index.num: The numeric value of the index in seconds. The base is “1970-01-01 00:00:00” (Execute "1970-01-01 00:00:00" %>% ymd_hms() %>% as.numeric() to see the value returned is zero). Every time series value after this date can be converted to a numeric value in seconds.
+diff: The difference in seconds from the previous numeric index value.
+year: The year component of the index.
+half: The half component of the index.
+quarter: The quarter component of the index.
+month: The month component of the index with base 1.
+month.xts: The month component of the index with base 0, which is what xts implements.
+month.lbl: The month label as an ordered factor begining with January and ending with December.
+day: The day component of the index.
+hour: The hour component of the index.
+minute: The minute component of the index.
+second: The second component of the index.
+hour12: The hour component on a 12 hour scale.
+am.pm: Morning (AM) = 1, Afternoon (PM) = 2.
+wday: The day of the week with base 1. Sunday = 1 and Saturday = 7.
+wday.xts: The day of the week with base 0, which is what xts implements. Sunday = 0 and Saturday = 6.
+wday.lbl: The day of the week label as an ordered factor begining with Sunday and ending with Saturday.
+mday: The day of the month.
+qday: The day of the quarter.
+yday: The day of the year.
+mweek: The week of the month.
+week: The week number of the year (Sunday start).
+week.iso: The ISO week number of the year (Monday start).
+week2: The modulus for bi-weekly frequency.
+week3: The modulus for tri-weekly frequency.
+week4: The modulus for quad-weekly frequency.
+mday7: The integer division of day of the month by seven, which returns the first, second, third, … instance the day has appeared in the month. Values begin at 1. For example, the first Saturday in the month has mday7 = 1. The second has mday7 = 2.
+
+It’s usually important to keep the index signature with the values (e.g. volume in our example). We can use an expedited approach with tk_augment_timeseries_signature(), which adds the signature to the end of the time series object. Note that xts and zoo objects only retain numeric columns and therefore “month.lbl” and “wday.lbl” columns will be dropped. We’ll use the tk_augment_timeseries_signature() function on the dataframe FB_vol_date which contains the date and volume columns.
+
+A common task in forecasting is generating a future date sequence that mimics the existing index. This task can be incredibly important to the validity of the model. In this vignette the user will learn several methods to generate a future time series index from an existing index using the tk_make_future_timeseries() function along with pros and cons of each and testing for accuracy. We’ll focus on making future dates with a daily frequency, which tends to be the most difficult to generate due to holidays, seasonality, weekends, etc. We’ll use two cases to illustrate the pros and cons:
+
+A simple example case with weekends and the last two weeks of the year missing
+A example case using daily trade data for FB from 2013 through 2016
+
+inspect_weekdays is useful for finding and removing missing dates that occur on a weekly, bi-weekly, tri-weekly or quad-weekly frequency (such as weekends or every other Friday off). When applied to the example, the algorithm finds and removes omitted weekends of the future data set.
+
+```{r}
+idx %>%
+    tk_make_future_timeseries(n_future = 395, inspect_weekdays = TRUE) %>% #inspect_months = TRUE
+    tk_get_timeseries_signature() %>%
+    ggplot(aes(x = index, y = diff)) +
+    geom_line(color = palette_light()[[1]]) +
+    theme_tq()
+```
+
+We can inspect further by analyzing both the Type I errors (errors that the algorithm removed incorrectly) and Type II errors (errors that the prediction that algorithm failed to remove).
+
+Type I Errors
+
+Errors that algorithm removed incorrectly. These errors are the most dangerous because users may not know which days were removed incorrectly. If known, they can be accounted for with insert_values. The easiest way to tell is by reviewing the frequency chart for larger than normal spikes.
+
+```{r}
+idx_train <- tk_index(train)
+idx_test  <- tk_index(test)
+```
+
+```{r}
+idx_future_wdays_and_months <- idx_train %>%
+    tk_make_future_timeseries(n_future = 395, inspect_weekdays = T, inspect_months = T)
+
+idx_test[!(idx_test %in% idx_future_wdays_and_months)]
+
+```
+
+Type II Errors
+
+Errorst that algorithm failed to remove. These errors are the eaisest to manage because typically the analyst generally knows which days should be removed. These errors can be addressed with skip_values provided prediction length is manageable.
+
+```{r}
+idx_future_wdays_and_months[!(idx_future_wdays_and_months %in% idx_test)]
+
+```
+
+
+insert_values adds values to the future time series, and skip_values removes values from the future time series. The Type I errors (incorrectly removed observations) can be addressed with insert_values. The Type II errors (incorrectly kept observations) can be addressed with skip_values. We had one Type II error in the example, and we’ll correct with skip_values. Make sure the class of the value passed to skip_values matches the class of the time series index.
+
+
+
+```{r}
+idx_test %>%
+    tk_get_timeseries_signature() %>%
+    ggplot(aes(x = index, y = diff)) +
+    geom_line(color = palette_light()[[1]]) +
+    theme_tq() +
+    labs(title = "FB Test: Frequency of test set", 
+         subtitle = "Combination of regularly spaced weekends and irregular holidays")
+```
+
+```{r}
+# Inspect weekdays: Removes weekends from future series
+idx_future_wdays <- idx_train %>% 
+    tk_make_future_timeseries(n_future = 366, inspect_weekdays = TRUE, inspect_months = FALSE)
+
+# Visualize frequency
+idx_future_wdays %>% 
+    tk_get_timeseries_signature() %>%
+    ggplot(aes(x = index, y = diff)) +
+    geom_line(color = palette_light()[[1]]) +
+    theme_tq() +
+    labs(title = "FB Test: Frequency of predection with only inspect_weekdays = T", 
+         subtitle = "Catches weekends, but not holidays")
+```
+
+If we apply both inspect weekdays and inspect months the errors actually increase. This is due to the difficulty in predicting holidays (days off throughout the year), which tend to occur with unique rules (e.g. Memorial Day is last Monday of May).
+
+```{r}
+# Inspect weekdays: Removes weekends from future series
+idx_future_wdays_and_months <- idx_train %>% 
+    tk_make_future_timeseries(n_future = 366, inspect_weekdays = TRUE, inspect_months = TRUE)
+
+# Visualize frequency
+idx_future_wdays_and_months %>%
+    tk_get_timeseries_signature() %>%
+    ggplot(aes(x = index, y = diff)) +
+    geom_line(color = palette_light()[[1]]) +
+    theme_tq() +
+    labs(title = "FB Test: inspect_weekdays = T and inspect_months = T", 
+         subtitle = "For most part catches missing weekends and some holidays, but some incorrect days are removed")
+```
+
+We can correct for this using the skip_values and inspect_weekdays arguments. The former removes specific observations while the latter uses a logistic regression algorithm to identify the probability of specific weekdays being present in the future index. The algorithm for inspecting weekdays will check for any weekdays that are missing on a weekly, bi-weekly, tri-weekly, or quad-weekly frequency and automatically remove these days. As shown below, holidays and weekends are accounted for.
+
+```{r}
+# Build vector of holidays in correct timeseries class using ymd()
+holidays <- c(
+    "2016-01-01", "2016-01-18", "2016-02-15", "2016-03-25", "2016-05-30",
+    "2016-07-04", "2016-09-05", "2016-11-24", "2016-12-26"
+) %>% ymd()
+
+# Create future index
+idx_future <- idx_train %>%
+    tk_make_future_timeseries(n_future = 366, inspect_weekdays = TRUE, skip_values = holidays) 
+
+# Plot using ggplot
+idx_future %>%
+    tk_get_timeseries_signature() %>%
+    ggplot(aes(x = index, y = diff)) +
+    geom_line(color = palette_light()[[1]]) +
+    theme_tq() +
+    labs(title = "FB Test: inspect_weekdays = T and skip_values", 
+         subtitle = "Use weekdays to target frequently occuring dates missed and skip values to target known irregular missing dates")
+```
+Building the future date sequence is an essential part of forecasting using timekit. An innaccurate date sequence can hurt the performance of the forecast. The tk_make_future_index() function has methods to remove frequently missing dates. However, the user should always review the output to ensure an accurate future date sequence is achieved.
+
+Further, holidays are difficult to predict using inspect_months due to the irregular nature. It is likely better for the user to select inspect_weekdays = TRUE and use skip_values to remove irregular holidays. Use inspect_months when there are missing dates that occur on a monthly, quarterly, or yearly frequency as part of a regular pattern. Use skip_values and insert_values to remove and add dates as necessary to account for irregular missing days.
+
+------------------
+
+<br>
+
+```{r }
+sessionInfo()
+```
+
+
+
+
+
